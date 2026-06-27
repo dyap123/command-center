@@ -129,7 +129,7 @@ const ROLES=[
   {key:'pm',name:'PM',short:'RFIs · Submittals · Cost',desc:'RFIs, submittals, inspections, cost',icon:'account_tree',accent:'#3B82F6',gate:'PIN entry',gateIcon:'pin'},
   {key:'pe',name:'PE',short:'Data · Zones · Pours',desc:'Data input, map zones, tools, pours',icon:'architecture',accent:'#8B5CF6',gate:'PIN entry',gateIcon:'pin'},
 ];
-const LOCKS={admin:[],super:['rfis','submittals','inspections'],pm:['attendance'],pe:['submittals']};
+const LOCKS={admin:[],super:['rfis','submittals'],pm:['attendance'],pe:['submittals']};
 const NAV=[
   {key:'dashboard',label:'Dashboard',icon:'space_dashboard'},
   {key:'map',label:'The Map',icon:'map',badge:'LIVE'},
@@ -137,7 +137,7 @@ const NAV=[
   {key:'tools',label:'Inventory',icon:'inventory_2'},
   {key:'attendance',label:'Attendance',icon:'groups'},
   {key:'rfis',label:'RFIs',icon:'help_center'},
-  {key:'inspections',label:'Inspections',icon:'fact_check'},
+  {key:'pours',label:'Pours',icon:'water_drop'},
   {key:'submittals',label:'Submittals',icon:'description'},
   {key:'admin',label:'Admin',icon:'admin_panel_settings',adminOnly:true},
 ];
@@ -147,7 +147,7 @@ function realRoleKey(){ return (ME.role||'').toLowerCase()||'pe'; }
 function activeRole(){ return STATE.viewRole||realRoleKey(); }
 const CAP={
   rfiEdit:['admin','pm','pe'], zoneEdit:['admin','pe'], mapCalib:['admin','pe'], markupEdit:['admin','pm','pe'],
-  scheduleEdit:['admin','super'], inspect:['admin','pm','pe'], adminUsers:['admin'],
+  scheduleEdit:['admin','super'], inspect:['admin','pm','pe'], pourEdit:['admin','super','pm','pe'], adminUsers:['admin'],
 };
 // Global edit lock — default LOCKED (view-only) until unlocked with the PIN (shortcut L).
 // When locked, all edit affordances hide and writes are blocked, so shared data is safe.
@@ -212,7 +212,13 @@ function startLegacySync(){ if(_legacy)return; _legacy=true;
   rootListen('cup-foundation/footingEdits',v=>{ DATA.footEdits=v||{}; if(M.base) buildFootings(); });
   rootListen('cup-foundation/footingPours',v=>{ DATA.footingPours=v||{}; if(onMap()){renderDock();repaint();} softUpdate(); });
   rootListen('cup-foundation/pours',v=>{ DATA.cupPours=v||{}; refreshPours(); });
-  rootListen('pours-user',v=>{ DATA.poursUser=v||{}; refreshPours(); });
+  rootListen('pours-user',v=>{ DATA.poursUser=v||{}; refreshPours(); cupReact(); });
+  rootListen('pour-overrides',v=>{ DATA.pourOverrides=v||{}; cupReact(); });
+  rootListen('pour-status',v=>{ DATA.pourStatus=v||{}; cupReact(); });
+  rootListen('pours-deleted',v=>{ DATA.poursDeleted=v||{}; cupReact(); });
+  rootListen('checklist',v=>{ DATA.cupChecklist=v||{}; cupReact(); });
+  rootListen('concrete-order',v=>{ DATA.concreteOrder=v||{}; cupReact(); });
+  rootListen('mix-designs',v=>{ DATA.mixDesignsLive=v||{}; cupReact(); });
   rootListen('embed-tracker/zones',v=>{ DATA.etZones=v||{}; refreshPours(); });
   rootListen('embed-tracker/embeds',v=>{ DATA.embedTypes=v||{}; if(STATE.activeTab==='tools'&&(STATE.invKind||'tools')==='embed')renderBody(); });
   rootListen('embed-tracker/pins',v=>{ DATA.pins=v||{}; if(STATE.activeTab==='tools'&&(STATE.invKind||'tools')==='embed')renderBody(); if(onMap()){renderLayerPanel();repaint();} softUpdate(); });
@@ -391,7 +397,7 @@ function renderRail(){
 function renderTopbar(){
   const tb=document.getElementById('topbar'); if(!tb)return;
   tb.style.cssText=`height:60px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;padding:0 22px;gap:16px;background:rgba(11,14,19,.6);backdrop-filter:blur(10px);z-index:6`;
-  const TT={dashboard:['Dashboard',"What's happening on site right now"],map:['The Map','Footings + embeds on shared gridlines · live'],schedule:['Schedule','Look-ahead → pours · '+activeRole().toUpperCase()+' view'],tools:['Inventory','Tools + embeds · synced from the field apps'],attendance:['Attendance','Daily sign-in roster'],rfis:['RFIs','Requests for information'],inspections:['Inspections','Inspection status · synced'],submittals:['Submittals','Submittal log'],admin:['Admin','Users & roles']};
+  const TT={dashboard:['Dashboard',"What's happening on site right now"],map:['The Map','Footings + embeds on shared gridlines · live'],schedule:['Schedule','Look-ahead → pours · '+activeRole().toUpperCase()+' view'],tools:['Inventory','Tools + embeds · synced from the field apps'],attendance:['Attendance','Daily sign-in roster'],rfis:['RFIs','Requests for information'],pours:['Pours','Pour calendar · yardage + inspections · live from CUP'],submittals:['Submittals','Submittal log'],admin:['Admin','Users & roles']};
   const tt=TT[STATE.activeTab]||['',''];
   const pr=roleObj(activeRole());
   const menu=STATE.roleMenuOpen?`<div style="position:absolute;top:46px;right:0;width:230px;background:rgba(22,26,33,.97);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);border-radius:13px;padding:8px;box-shadow:0 24px 60px rgba(0,0,0,.6);z-index:20;animation:oyUp .18s ease">
@@ -421,7 +427,7 @@ window.toggleRoleMenu=toggleRoleMenu; window.switchRole=switchRole;
 function go(tab){ if(navLocked(tab))return; setS({activeTab:tab,roleMenuOpen:false}); M.sel=null; renderRail(); renderTopbar(); renderBody(); }
 window.go=go;
 /* ---- context-aware top search (filters [data-search] rows in the active tab) ---- */
-const SEARCH_TABS={schedule:'Find a task…',tools:'Search inventory…',rfis:'Search RFIs…',inspections:'Search inspections…',attendance:'Search crew…',submittals:'Search submittals…'};
+const SEARCH_TABS={schedule:'Find a task…',tools:'Search inventory…',rfis:'Search RFIs…',pours:'Find a pour…',attendance:'Search crew…',submittals:'Search submittals…'};
 function onTopSearch(v){ (STATE.searchByTab=STATE.searchByTab||{})[STATE.activeTab]=v; applyTopSearch(); }
 function clearTopSearch(){ (STATE.searchByTab=STATE.searchByTab||{})[STATE.activeTab]=''; applyTopSearch(); renderTopbar(); const i=document.getElementById('topSearch'); if(i)i.focus(); }
 function applyTopSearch(){ const q=((STATE.searchByTab&&STATE.searchByTab[STATE.activeTab])||'').toLowerCase().trim(); const body=document.getElementById('body'); if(!body)return;
@@ -438,7 +444,7 @@ function renderBody(){
   else if(t==='tools') b.innerHTML=inventoryHTML();
   else if(t==='attendance') b.innerHTML=attendanceHTML();
   else if(t==='rfis') b.innerHTML=rfiHTML();
-  else if(t==='inspections') b.innerHTML=inspectionsHTML();
+  else if(t==='pours') b.innerHTML=poursHTML();
   else if(t==='admin') b.innerHTML=adminHTML();
   else b.innerHTML=otherHTML(t);
   applyTopSearch();
@@ -913,6 +919,101 @@ function inspectionsHTML(){ const items=[];
 }
 function exportInsp(){ const aoa=[['Element','Status','Marked ready by','Updated by','Updated at']]; Object.entries(DATA.inspections).forEach(([k,v])=>aoa.push([k,v.status||'',v.markedReadyBy||'',v.updatedBy||'',v.updatedAt?new Date(v.updatedAt).toLocaleString():''])); exportXLSX('inspections',[{name:'Inspections',aoa}]); }
 window.exportInsp=exportInsp;
+
+/* ============================================================================
+   POURS — CUP-style calendar + cards (reads the SAME Firebase + sheet as CUP)
+   ============================================================================ */
+const CUP_SHEET_ID='1fTL_w-kLz0Jzwni9r3kSuGqSvlsFhNm0RsfRurQH750';
+const CUP_GVIZ=`https://docs.google.com/spreadsheets/d/${CUP_SHEET_ID}/gviz/tq?tqx=out:json&gid=999`;
+const CUP_CHECKLIST_URL=`https://docs.google.com/spreadsheets/d/${CUP_SHEET_ID}/gviz/tq?tqx=out:json&gid=888`;
+const SEC_COLORS={A:'#3D9E6B',B:'#D4842A',C:'#5BA8D9',D:'#7B6FC7'};
+const CUP_MIX_DESIGNS={'O80D739K1':{code:'O80D739K1',psi:8000,label:'8000 PSI Structural'},'O60C649J1':{code:'O60C649J1',psi:5000,label:'5000 PSI Footings'},'S80S662L2':{code:'S80S662L2',psi:0,label:'Slurry Backfill (8sk)'}};
+const CONCRETE_ORDER_ITEMS=[{key:'mix_confirmed',label:'Mix design confirmed'},{key:'qty_confirmed',label:'Quantity confirmed'},{key:'batch_plant',label:'Batch plant confirmed'},{key:'delivery_time',label:'Delivery time set'},{key:'pump_arranged',label:'Pump arranged'},{key:'order_called_in',label:'Order called in'},{key:'ticket_received',label:'Ticket # received'}];
+let _cupMax={cy8000:1,cy5000:1,slurry:1}, _cupLoading=false;
+function cupReact(){ if(STATE.activeTab==='pours'){ renderBody(); cupRefreshModal(); } }
+function cupGvizRows(text){ const m=text.match(/setResponse\(([\s\S]*)\)/); if(!m)return null; return JSON.parse(m[1]).table.rows; }
+function _gs(row,i){ const c=row&&row.c&&row.c[i]; return c&&c.v!=null?String(c.v):''; }
+function _gn(row,i){ const c=row&&row.c&&row.c[i]; if(!c||c.v==null)return 0; if(typeof c.v==='number')return c.v; const n=parseFloat(String(c.v).replace(/,/g,'')); return isNaN(n)?0:n; }
+function _gd(row,i){ const c=row&&row.c&&row.c[i]; if(!c||c.v==null)return ''; const v=String(c.v); if(v.startsWith('Date(')){ const p=v.match(/Date\((\d+),(\d+),(\d+)\)/); if(p&&+p[1]>2000)return (+p[2]+1)+'/'+(+p[3]); } return c.f||''; }
+async function cupFetchSheetPours(){ try{ const r=await fetch(CUP_GVIZ); const rows=cupGvizRows(await r.text()); if(!rows)return; const pours=[]; let mode='ref';
+  for(const row of rows){ if(!row||!row.c)continue; const a=_gs(row,0).trim();
+    if(a==='TOTAL'){mode='scan';continue;} if(a==='ORDER SUMMARY'){mode='order_skip';continue;} if(mode==='order_skip'){mode='order';continue;}
+    if(mode==='order'){ if(a==='GRAND TOTAL')break; if(/^[A-D]-[1-9]/.test(a))pours.push({id:a,section:_gs(row,1).trim()||a[0],date:_gd(row,2),cy8000:_gn(row,3),cy5000:_gn(row,4),slurry:_gn(row,5),total:_gn(row,6),trucks:_gn(row,7),status:_gs(row,8).trim(),label:''}); } }
+  DATA.cupSheetPours=pours; }catch(e){ DATA.cupSheetPours=DATA.cupSheetPours||[]; } }
+async function cupFetchChecklist(){ try{ const r=await fetch(CUP_CHECKLIST_URL); const rows=cupGvizRows(await r.text()); if(!rows)return; const phases={},order=[];
+  for(const row of rows){ if(!row||!row.c)continue; const phase=_gs(row,0).trim(),what=_gs(row,1).trim(); if(!phase||!what||phase==='Phase')continue; if(!phases[phase]){phases[phase]=[];order.push(phase);} phases[phase].push({what,who:_gs(row,2).trim()}); }
+  DATA.cupChecklistItems=order.map(ph=>({phase:ph,phaseKey:ph,items:phases[ph]})); }catch(e){ DATA.cupChecklistItems=DATA.cupChecklistItems||[]; } }
+function cupEnsureData(){ if(DATA.cupSheetPours&&DATA.cupChecklistItems)return; if(_cupLoading)return; _cupLoading=true; Promise.all([cupFetchSheetPours(),cupFetchChecklist()]).then(()=>{ _cupLoading=false; if(STATE.activeTab==='pours')renderBody(); }).catch(()=>{_cupLoading=false;}); }
+function cupPours(){ const sheet=DATA.cupSheetPours||[], user=DATA.poursUser||{}, del=DATA.poursDeleted||{}, ov=DATA.pourOverrides||{}; const byId={}, list=[];
+  sheet.forEach(p=>{ if(del[p.id])return; const np=Object.assign({},p); byId[p.id]=np; list.push(np); });
+  Object.entries(user).forEach(([id,p])=>{ if(del[id]||byId[id])return; const total=(+p.cy8000||0)+(+p.cy5000||0)+(+p.slurry||0); const np={id,section:(p.section||id[0]||'A').toString().toUpperCase(),date:p.date||'',cy8000:+p.cy8000||0,cy5000:+p.cy5000||0,slurry:+p.slurry||0,total,trucks:+p.trucks||Math.ceil(total/9)||0,status:p.status||'',label:p.label||'',userAdded:true}; byId[id]=np; list.push(np); });
+  list.forEach(p=>{ const o=ov[p.id]; if(o)Object.entries(o).forEach(([k,v])=>{ if(k==='cy8000'||k==='cy5000'||k==='slurry')p[k]=+v||0; else p[k]=v; }); p.total=(+p.cy8000||0)+(+p.cy5000||0)+(+p.slurry||0); p.trucks=Math.ceil(p.total/9); });
+  return list; }
+function cupGetStatus(id){ const v=(DATA.pourStatus||{})[id]; return (v==='ORDERED'||v==='COMPLETE'||v==='PENDING')?v:'PENDING'; }
+function cupMixDesigns(){ return Object.assign({},CUP_MIX_DESIGNS,DATA.mixDesignsLive||{}); }
+function cupCheckKey(id,what){ return id+'__'+String(what).replace(/[.#$\[\]\/]/g,'_'); }
+function cupInspStatus(id){ const g=(DATA.cupChecklistItems||[]).find(x=>x.phaseKey==='INSPECTIONS'); if(!g)return{items:[],done:0,total:0}; const ch=DATA.cupChecklist||{}; const its=g.items.map(it=>({what:it.what,done:!!ch[cupCheckKey(id,it.what)]})); return {items:its,done:its.filter(i=>i.done).length,total:its.length}; }
+function cupConcreteStatus(id){ const s=DATA.concreteOrder||{}; const items=CONCRETE_ORDER_ITEMS.map(it=>({key:it.key,label:it.label,done:!!s[id+'__'+it.key]})); return {items,done:items.filter(i=>i.done).length,total:items.length}; }
+function cupDateVal(d){ if(!d)return 99999; const [m,dd]=d.split('/').map(Number); return (m||99)*100+(dd||0); }
+/* writes — go to the shared root nodes CUP reads, so edits sync across all apps */
+function cupSetField(id,field,val){ if(!can('pourEdit'))return toast('Unlock editing (PIN) to edit pours','warn'); rootSet('pour-overrides/'+id+'/'+field,val).then(()=>cupFeed(id,field+' → '+val)).catch(e=>toast(e.message,'err')); }
+function cupCycleStatus(id){ if(!can('pourEdit'))return toast('Unlock editing to change status','warn'); const o=['PENDING','ORDERED','COMPLETE']; const next=o[(o.indexOf(cupGetStatus(id))+1)%3]; rootSet('pour-status/'+id,next).then(()=>cupFeed(id,'status → '+next)).catch(e=>toast(e.message,'err')); }
+function cupToggleCheck(id,idx){ if(!can('pourEdit'))return toast('Unlock editing','warn'); const g=(DATA.cupChecklistItems||[]).find(x=>x.phaseKey==='INSPECTIONS'); if(!g||!g.items[idx])return; const k=cupCheckKey(id,g.items[idx].what); const cur=(DATA.cupChecklist||{})[k]; rootUpdate('checklist',{[k]:cur?null:true}).catch(e=>toast(e.message,'err')); }
+function cupMarkAllInsp(id){ if(!can('pourEdit'))return; const g=(DATA.cupChecklistItems||[]).find(x=>x.phaseKey==='INSPECTIONS'); if(!g)return; const u={}; g.items.forEach(it=>u[cupCheckKey(id,it.what)]=true); rootUpdate('checklist',u).catch(e=>toast(e.message,'err')); }
+function cupToggleConcrete(id,key){ if(!can('pourEdit'))return toast('Unlock editing','warn'); const k=id+'__'+key; const cur=(DATA.concreteOrder||{})[k]; rootUpdate('concrete-order',{[k]:cur?null:true}).catch(e=>toast(e.message,'err')); }
+function cupMarkAllConcrete(id){ if(!can('pourEdit'))return; const u={}; CONCRETE_ORDER_ITEMS.forEach(it=>u[id+'__'+it.key]=true); rootUpdate('concrete-order',u).catch(e=>toast(e.message,'err')); }
+function cupFeed(id,msg){ ccPush('feed',{ts:Date.now(),type:'pour',msg:id+' '+msg+' ('+(ME.name||ME.email||'someone')+')'}).catch(()=>{}); }
+window.cupSetField=cupSetField; window.cupCycleStatus=cupCycleStatus; window.cupToggleCheck=cupToggleCheck; window.cupMarkAllInsp=cupMarkAllInsp; window.cupToggleConcrete=cupToggleConcrete; window.cupMarkAllConcrete=cupMarkAllConcrete;
+function cupCardWrap(p){ return `<div style="width:344px;max-width:88vw;max-height:82vh;overflow:auto">${cupPourCard(p)}</div>`; }
+function cupRefreshModal(){ if(!STATE.cupModal)return; const md=document.getElementById('modal'); if(!md||!md.classList.contains('open'))return; const p=cupPours().find(x=>x.id===STATE.cupModal); if(p)document.getElementById('modalCard').innerHTML=cupCardWrap(p); }
+function cupOpenCard(id){ const p=cupPours().find(x=>x.id===id); if(!p)return; STATE.cupModal=id; openModal(cupCardWrap(p)); }
+window.cupOpenCard=cupOpenCard;
+function cupPourCard(p){ const c=SEC_COLORS[p.section]||'#888'; const st=cupGetStatus(p.id); const isOrd=st==='ORDERED'||st==='COMPLETE'; const ed=canView('pourEdit');
+  const mdVals=Object.values(cupMixDesigns()); const codeFor=psi=>{const d=mdVals.find(x=>+x.psi===psi);return d?d.code:'';}; const slurryCode=()=>{const d=mdVals.find(x=>/slurry/i.test(x.label||'')|| +x.psi===0);return d?d.code:'';};
+  const mixes=[{key:'cy8000',label:'8000 PSI',code:codeFor(8000),col:'#FCA5A5',bar:'linear-gradient(90deg,#dc2626,#fb923c)',glow:'rgba(239,68,68,.3)'},{key:'cy5000',label:'5000 PSI',code:codeFor(5000),col:'#93C5FD',bar:'linear-gradient(90deg,#2563eb,#22d3ee)',glow:'rgba(59,130,246,.3)'},{key:'slurry',label:'Slurry',code:slurryCode(),col:'#D1D5DB',bar:'linear-gradient(90deg,#6b7280,#9ca3af)',glow:'rgba(148,163,184,.2)'}];
+  const stStyle=st==='COMPLETE'?'background:rgba(59,130,246,.2);color:#60a5fa;border:1px solid rgba(59,130,246,.3)':st==='ORDERED'?'background:rgba(34,197,94,.2);color:#4ade80;border:1px solid rgba(34,197,94,.3)':'background:rgba(255,255,255,.05);color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.1)';
+  const stBtn=`<button ${ed?`onclick="cupCycleStatus('${p.id}')"`:'disabled'} style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:9999px;cursor:${ed?'pointer':'default'};${stStyle}">${st}</button>`;
+  const dateEl=ed?`<span class="mono" style="position:relative;display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;${p.date?'border:1px solid rgba(96,165,250,.3);background:rgba(59,130,246,.1);color:#93c5fd':'border:1px dashed rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.4)'}"><span class="ms" style="font-size:12px">calendar_month</span>${p.date||'Set date'}<input type="date" value="${p.date?'2026-'+p.date.split('/').map(n=>String(n).padStart(2,'0')).join('-'):''}" style="position:absolute;inset:0;opacity:0;cursor:pointer;color-scheme:dark" onchange="if(this.value){const d=this.value.split('-');cupSetField('${p.id}','date',parseInt(d[1])+'/'+parseInt(d[2]))}"></span>`:`<span class="mono" style="font-size:11px;color:rgba(255,255,255,.4)">${esc(p.date||'—')}</span>`;
+  const mixRows=mixes.map(m=>{ const v=+p[m.key]||0; const max=_cupMax[m.key]||1; const pct=Math.round(v/max*100); const dim=v===0?'opacity:.5':'';
+    const val=ed?`<span style="display:inline-flex;align-items:center;gap:2px"><input type="number" min="0" step="0.5" value="${v}" onfocus="this.select()" onclick="event.stopPropagation()" onblur="(function(el){const nv=+el.value||0;if(nv!==${v})cupSetField('${p.id}','${m.key}',nv)})(this)" onkeydown="if(event.key==='Enter')this.blur()" class="mono" style="width:54px;text-align:right;background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:4px;color:${m.col};font-weight:600;font-size:12px;padding:1px 3px;outline:none">&nbsp;<span style="color:rgba(255,255,255,.4);font-size:11px">CY</span></span>`:`<span class="mono" style="color:${m.col};font-weight:600;font-size:12px">${v} CY</span>`;
+    return `<div style="margin-bottom:8px;${dim}"><div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:4px"><span style="color:rgba(255,255,255,.4);display:flex;align-items:center;gap:6px;min-width:0">${m.label}${m.code?`<span class="mono" style="font-size:8.5px;padding:0 4px;border-radius:3px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.1)" title="Mix design ${m.code}">${m.code}</span>`:''}</span>${val}</div><div style="height:6px;border-radius:9999px;background:rgba(255,255,255,.05);overflow:hidden"><div style="height:100%;border-radius:9999px;width:${pct}%;background:${m.bar};box-shadow:0 0 6px ${m.glow}"></div></div></div>`;
+  }).join('');
+  const insp=cupInspStatus(p.id); let inspHtml='';
+  if(insp.total){ const pctI=Math.round(insp.done/insp.total*100); const clr=pctI===100?'#41A447':pctI>0?'#FFBF00':'#ef4444';
+    inspHtml=`<div style="margin-bottom:8px;padding:8px;border-radius:9px;background:${clr}0a;border:1px solid ${clr}44"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:4px;color:${clr}"><span class="ms" style="font-size:11px">assignment_turned_in</span>Inspections ${insp.done}/${insp.total}</span><div style="display:flex;align-items:center;gap:6px">${ed&&pctI<100?`<button onclick="cupMarkAllInsp('${p.id}')" style="font-size:8px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.25);cursor:pointer;text-transform:uppercase">All ✓</button>`:''}<span class="mono" style="font-size:9px;font-weight:700;color:${clr}">${pctI}%</span></div></div><div style="height:4px;border-radius:9999px;background:rgba(255,255,255,.05);overflow:hidden;margin-bottom:6px"><div style="height:100%;border-radius:9999px;width:${pctI}%;background:${clr}"></div></div><div style="display:flex;flex-wrap:wrap;gap:4px">${insp.items.map((it,i)=>{const short=it.what.length>22?it.what.slice(0,20)+'…':it.what; const base=`font-size:8px;padding:2px 6px;border-radius:4px;${it.done?'background:rgba(34,197,94,.15);color:#4ade80':'background:rgba(255,255,255,.05);color:rgba(255,255,255,.35)'}`; return ed?`<button onclick="cupToggleCheck('${p.id}',${i})" class="mono" style="${base};cursor:pointer;border:0" title="${esc(it.what)}">${esc(short)}${it.done?' ✓':''}</button>`:`<span class="mono" style="${base}" title="${esc(it.what)}">${esc(short)}${it.done?' ✓':''}</span>`;}).join('')}</div></div>`; }
+  const co=cupConcreteStatus(p.id); const pctC=Math.round(co.done/co.total*100); const clrC=pctC===100?'#41A447':pctC>0?'#FFBF00':'#ef4444';
+  const coHtml=`<div style="margin-bottom:8px;padding:8px;border-radius:9px;background:${clrC}0a;border:1px solid ${clrC}44"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:4px;color:${clrC}"><span class="ms" style="font-size:11px">local_shipping</span>Concrete Order ${co.done}/${co.total}</span><div style="display:flex;align-items:center;gap:6px">${ed&&pctC<100?`<button onclick="cupMarkAllConcrete('${p.id}')" style="font-size:8px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.25);cursor:pointer;text-transform:uppercase">All ✓</button>`:''}<span class="mono" style="font-size:9px;font-weight:700;color:${clrC}">${pctC}%</span></div></div><div style="height:4px;border-radius:9999px;background:rgba(255,255,255,.05);overflow:hidden;margin-bottom:6px"><div style="height:100%;border-radius:9999px;width:${pctC}%;background:${clrC}"></div></div><div style="display:flex;flex-wrap:wrap;gap:4px">${co.items.map(it=>{const base=`font-size:8px;padding:2px 6px;border-radius:4px;${it.done?'background:rgba(34,197,94,.15);color:#4ade80':'background:rgba(255,255,255,.05);color:rgba(255,255,255,.35)'}`; return ed?`<span onclick="cupToggleConcrete('${p.id}','${it.key}')" class="mono" style="${base};cursor:pointer" title="${esc(it.label)}">${esc(it.label)}${it.done?' ✓':''}</span>`:`<span class="mono" style="${base}" title="${esc(it.label)}">${esc(it.label)}${it.done?' ✓':''}</span>`;}).join('')}</div></div>`;
+  return `<div style="background:rgba(6,6,14,.82);border:1px solid rgba(255,255,255,.06);border-left:3px solid ${c};border-radius:12px;padding:16px;${st==='COMPLETE'?'box-shadow:inset 0 0 0 1px rgba(59,130,246,.3)':isOrd?'box-shadow:inset 0 0 0 1px rgba(34,197,94,.3)':''}"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:5px;background:${c}22;color:${c};flex-shrink:0">${esc(p.section)}</span><span class="mono" style="font-size:13px;font-weight:700;color:rgba(255,255,255,.9)">${esc(p.id)}</span>${p.label?`<span style="font-size:11px;color:rgba(255,255,255,.4);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.label)}</span>`:''}</div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0">${dateEl}${stBtn}</div></div>${mixRows}${inspHtml}${coHtml}<div style="display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid rgba(255,255,255,.05)"><span class="mono" style="font-size:13px;font-weight:700;color:#34D399">${Math.round(p.total)} <span style="color:rgba(255,255,255,.4);font-weight:400;font-size:11px">CY</span></span><span style="font-size:11px;color:rgba(255,255,255,.4)">${p.trucks} trucks</span></div></div>`;
+}
+function poursHTML(){ cupEnsureData(); const list=cupPours(); _cupMax={cy8000:Math.max(1,...list.map(p=>+p.cy8000||0)),cy5000:Math.max(1,...list.map(p=>+p.cy5000||0)),slurry:Math.max(1,...list.map(p=>+p.slurry||0))};
+  const view=STATE.pourView||'calendar'; const g=list.reduce((a,p)=>{a.total+=p.total;a.trucks+=p.trucks;return a;},{total:0,trucks:0});
+  const tabs=[['calendar','Calendar','calendar_month'],['cards','Cards','grid_view']].map(t=>`<button onclick="setPourView('${t[0]}')" class="segbtn ${view===t[0]?'on':''}" style="display:flex;align-items:center;gap:6px"><span class="ms" style="font-size:15px">${t[2]}</span>${t[1]}</button>`).join('');
+  const totals=`<div style="display:flex;gap:14px;align-items:center;font-size:11.5px;color:#9AA3B0"><span><b class="mono" style="color:#34D399">${Math.round(g.total).toLocaleString()}</b> CY</span><span><b class="mono">${g.trucks}</b> trucks</span><span><b class="mono">${list.length}</b> pours</span></div>`;
+  const head=`<div style="flex-shrink:0;display:flex;align-items:center;gap:14px;padding:14px 20px 12px;flex-wrap:wrap"><div class="seg">${tabs}</div>${totals}<div style="flex:1"></div>${EDIT_LOCKED&&(CAP.pourEdit||[]).includes(activeRole())?`<span style="font-size:11px;color:#7A8290;display:flex;align-items:center;gap:5px"><span class="ms" style="font-size:14px">lock</span>Unlock to edit</span>`:''}<a class="ghostbtn" href="${APP_URLS.cup}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>Open CUP</a></div>`;
+  const body= !DATA.cupSheetPours&&!list.length ? `<div class="full"><span class="ms">water_drop</span><div>Loading pours from CUP…</div></div>` : (view==='cards'?cupCardsView(list):cupCalendarView(list));
+  return `<div style="display:flex;flex-direction:column;height:100%;animation:oyFade .35s ease">${head}${body}</div>`;
+}
+function setPourView(v){ STATE.pourView=v; renderBody(); }
+window.setPourView=setPourView;
+function cupCardsView(list){ const sorted=list.slice().sort((a,b)=>cupDateVal(a.date)-cupDateVal(b.date)||a.id.localeCompare(b.id));
+  if(!sorted.length)return `<div class="full"><span class="ms">water_drop</span><div>No pours yet.</div></div>`;
+  return `<div style="flex:1;overflow:auto;padding:0 20px 20px"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(304px,1fr));gap:14px;align-items:start">${sorted.map(p=>`<div data-search="${esc((p.id+' '+p.section+' '+(p.label||'')+' '+(p.date||'')).toLowerCase())}">${cupPourCard(p)}</div>`).join('')}</div></div>`; }
+function cupCalendarView(list){ const year=2026; const month=(STATE.pourMonth==null?new Date().getMonth():STATE.pourMonth);
+  const byDay={}, unsched=[]; list.forEach(p=>{ if(!p.date){unsched.push(p);return;} const [m,d]=p.date.split('/').map(Number); if(m-1===month)(byDay[d]=byDay[d]||[]).push(p); });
+  const first=new Date(year,month,1); const startOff=first.getDay(); const dim=new Date(year,month+1,0).getDate(); const today=new Date(); const isToday=d=>today.getFullYear()===year&&today.getMonth()===month&&today.getDate()===d;
+  const wk=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(w=>`<div style="font-size:10px;color:#5B636F;text-align:center;padding:5px 0;font-weight:600;letter-spacing:.5px">${w}</div>`).join('');
+  let cells=''; for(let i=0;i<startOff;i++)cells+=`<div style="background:rgba(255,255,255,.012);border-radius:8px"></div>`;
+  for(let d=1;d<=dim;d++){ const ps=(byDay[d]||[]).sort((a,b)=>a.id.localeCompare(b.id)); const tot=ps.reduce((s,p)=>s+p.total,0);
+    const chips=ps.map(p=>{const c=SEC_COLORS[p.section]||'#888'; const st=cupGetStatus(p.id); const sc=st==='COMPLETE'?'#60a5fa':st==='ORDERED'?'#4ade80':'#9AA3B0';
+      return `<div onclick="cupOpenCard('${p.id}')" style="cursor:pointer;border-left:3px solid ${c};background:rgba(255,255,255,.05);border-radius:5px;padding:3px 6px;margin-bottom:3px;display:flex;align-items:center;gap:5px" title="${esc(p.id)} · ${Math.round(p.total)} CY"><span style="width:5px;height:5px;border-radius:50%;background:${sc};flex-shrink:0"></span><span class="mono" style="font-size:10px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.id)}</span><span class="mono" style="font-size:9.5px;color:#7A8290;margin-left:auto;white-space:nowrap">${Math.round(p.total)}</span></div>`;}).join('');
+    cells+=`<div style="background:${isToday(d)?'rgba(59,130,246,.07)':'rgba(255,255,255,.022)'};border:1px solid ${isToday(d)?'rgba(59,130,246,.3)':'rgba(255,255,255,.05)'};border-radius:8px;padding:5px;min-height:80px;display:flex;flex-direction:column;overflow:hidden"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span class="mono" style="font-size:10.5px;font-weight:${isToday(d)?700:500};color:${isToday(d)?'#60a5fa':'#7A8290'}">${d}</span>${tot?`<span class="mono" style="font-size:8.5px;color:#34D399">${Math.round(tot)}CY</span>`:''}</div><div style="flex:1;overflow-y:auto">${chips}</div></div>`; }
+  const monthName=first.toLocaleString(undefined,{month:'long'})+' '+year;
+  const nav=`<div style="display:flex;align-items:center;gap:8px;padding:0 20px 10px"><button class="ghostbtn" onclick="cupMonthNav(-1)"><span class="ms" style="font-size:16px">chevron_left</span></button><div style="font-size:14px;font-weight:650;min-width:150px;text-align:center">${monthName}</div><button class="ghostbtn" onclick="cupMonthNav(1)"><span class="ms" style="font-size:16px">chevron_right</span></button><button class="ghostbtn" onclick="cupMonthToday()">Today</button></div>`;
+  const unschedHtml=unsched.length?`<div style="padding:12px 20px 0"><div style="font-size:11px;color:#7A8290;margin-bottom:6px">Unscheduled · ${unsched.length}</div><div style="display:flex;gap:8px;flex-wrap:wrap">${unsched.sort((a,b)=>a.id.localeCompare(b.id)).map(p=>{const c=SEC_COLORS[p.section]||'#888';return `<div onclick="cupOpenCard('${p.id}')" style="cursor:pointer;border-left:3px solid ${c};background:rgba(255,255,255,.05);border-radius:6px;padding:4px 9px;display:flex;align-items:center;gap:6px"><span class="mono" style="font-size:11px;font-weight:700">${esc(p.id)}</span><span class="mono" style="font-size:10px;color:#7A8290">${Math.round(p.total)}CY</span></div>`;}).join('')}</div></div>`:'';
+  return `<div style="flex:1;overflow:auto;display:flex;flex-direction:column;min-height:0;padding-bottom:18px">${nav}<div style="padding:0 20px"><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:5px">${wk}</div><div style="display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:minmax(80px,1fr);gap:5px">${cells}</div></div>${unschedHtml}</div>`; }
+function cupMonthNav(d){ let m=(STATE.pourMonth==null?new Date().getMonth():STATE.pourMonth)+d; STATE.pourMonth=Math.max(0,Math.min(11,m)); renderBody(); }
+function cupMonthToday(){ STATE.pourMonth=new Date().getMonth(); renderBody(); }
+window.cupMonthNav=cupMonthNav; window.cupMonthToday=cupMonthToday;
 
 /* ============================================================================
    SCHEDULE

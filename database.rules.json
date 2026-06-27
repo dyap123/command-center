@@ -1,0 +1,88 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "command-center": {
+      "users": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && ( !root.child('command-center/users').exists() || root.child('command-center/users/'+auth.uid+'/role').val() === 'Admin' )",
+          ".validate": "newData.hasChildren(['email','role'])",
+          "role": { ".validate": "newData.val()==='Admin' || newData.val()==='Super' || newData.val()==='PM' || newData.val()==='PE'" },
+          "email": { ".validate": "newData.isString()" },
+          "createdAt": { ".validate": "newData.isNumber()" }
+        }
+      },
+
+      "rfi": {
+        ".read": "auth != null",
+        "$id": {
+          ".write": "auth != null && root.child('command-center/users/'+auth.uid+'/role').val().matches(/^(Admin|PM|PE)$/)",
+          ".validate": "newData.hasChildren(['x','y']) || !newData.exists()"
+        }
+      },
+
+      "markups": {
+        ".read": "auth != null",
+        "$id": {
+          ".write": "auth != null && root.child('command-center/users/'+auth.uid+'/role').val().matches(/^(Admin|PM|PE)$/)"
+        }
+      },
+
+      "zones": {
+        ".read": "auth != null",
+        "$id": {
+          ".write": "auth != null && root.child('command-center/users/'+auth.uid+'/role').val().matches(/^(Admin|PE)$/)"
+        }
+      },
+
+      "inspections": {
+        ".read": "auth != null",
+        "$key": {
+          ".write": "auth != null && root.child('command-center/users/'+auth.uid+'/role').val().matches(/^(Admin|PM|PE)$/)",
+          ".validate": "newData.hasChildren(['status']) || !newData.exists()",
+          "markedReadyBy": { ".validate": "newData.isString()" },
+          "markedReadyAt": { ".validate": "newData.isNumber()" }
+        }
+      },
+
+      "schedule": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('command-center/users/'+auth.uid+'/role').val().matches(/^(Admin|Super)$/)"
+      },
+
+      "schedulePours": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('command-center/users/'+auth.uid+'/role').val().matches(/^(Admin|Super)$/)"
+      },
+
+      "mapCalib": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('command-center/users/'+auth.uid+'/role').val().matches(/^(Admin|PE)$/)"
+      },
+
+      "mapGrid": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('command-center/users/'+auth.uid+'/role').val().matches(/^(Admin|PE)$/)"
+      },
+
+      "feed": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('command-center/users/'+auth.uid+'/role').exists()"
+      },
+
+      "prefs": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
+    },
+
+    "$legacy": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

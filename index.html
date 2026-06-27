@@ -28,6 +28,7 @@
   @keyframes oyIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
   @keyframes oyPopUp{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:translateY(0)}}
   @keyframes oyFade{from{opacity:0}to{opacity:1}}
+  @keyframes oyShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
   #dotgrid{position:fixed;inset:0;background-image:radial-gradient(rgba(255,255,255,.028) 1px,transparent 1px);background-size:26px 26px;pointer-events:none;opacity:.6;z-index:0}
   .grad{background:linear-gradient(135deg,#8B5CF6,#3B82F6 55%,#D946EF)}
   .card{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);border-radius:14px}
@@ -244,16 +245,16 @@ function renderLogin(){
         :`<div style="margin-top:14px;font-size:11px;color:#7A8290;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:9px;padding:9px 11px">Preview mode — add the Firebase web apiKey to enable real sign-in &amp; roles.</div>`}
     </div>`;
   } else if(STATE.authStep==='pin'){
-    const dots=[0,1,2,3].map(i=>`<div style="width:13px;height:13px;border-radius:50%;border:1px solid ${i<STATE.pinEntry.length?'transparent':'rgba(255,255,255,.2)'};background:${i<STATE.pinEntry.length?'linear-gradient(135deg,#8B5CF6,#D946EF)':'transparent'};transition:.15s"></div>`).join('');
     const keys=['1','2','3','4','5','6','7','8','9','','0','back'];
     const pad=keys.map(k=>k===''?`<div style="visibility:hidden"></div>`:`<div onclick="pinTap('${k}')" class="mono" style="text-align:center;padding:14px 0;font-size:17px;font-weight:600;border-radius:11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);cursor:pointer;color:${k==='back'?'#7A8290':'#E6E9EF'}">${k==='back'?'⌫':k}</div>`).join('');
-    inner=`<div class="card" style="backdrop-filter:blur(20px);border-radius:18px;padding:26px;box-shadow:0 30px 80px rgba(0,0,0,.5);animation:oyUp .3s ease">
+    inner=`<div id="pinCard" class="card" style="backdrop-filter:blur(20px);border-radius:18px;padding:26px;box-shadow:0 30px 80px rgba(0,0,0,.5);animation:oyUp .3s ease">
       <div style="display:flex;align-items:center;gap:11px;margin-bottom:18px">
         <div style="width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:${hexA(pr.accent,.14)}"><span class="ms" style="font-size:20px;color:${pr.accent}">${pr.icon}</span></div>
         <div><div style="font-size:14px;font-weight:650">${pr.name}</div><div style="font-size:11px;color:#7A8290">${pr.gate}</div></div></div>
-      <div style="display:flex;gap:12px;justify-content:center;margin:6px 0 20px">${dots}</div>
+      <div id="pinDots" style="display:flex;gap:11px;justify-content:center;margin:6px 0 18px">${pinDotsHTML()}</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${pad}</div>
-      <div onclick="setS({authStep:'roles',pinEntry:''});render()" style="text-align:center;margin-top:16px;font-size:12px;color:#7A8290;cursor:pointer">← Back to roles</div></div>`;
+      <div style="text-align:center;margin-top:14px;font-size:10.5px;color:#5B636F">Type on your keyboard or tap the pad</div>
+      <div onclick="setS({authStep:'roles',pinEntry:''});render()" style="text-align:center;margin-top:10px;font-size:12px;color:#7A8290;cursor:pointer">← Back to roles</div></div>`;
   } else if(STATE.authStep==='signin'){
     inner=`<div class="card" style="backdrop-filter:blur(20px);border-radius:18px;padding:26px;box-shadow:0 30px 80px rgba(0,0,0,.5)">
       <div style="font-size:15px;font-weight:600;margin-bottom:4px">Sign in</div>
@@ -282,8 +283,22 @@ function renderLogin(){
     </div></div>`;
 }
 function pickRole(k){ setS({pendingRole:k}); if(AUTH_OK){ setS({authStep:'signin'}); } else { setS({authStep:'pin',pinEntry:''}); } render(); }
-function pinTap(d){ let e=STATE.pinEntry; if(d==='back'){ setS({pinEntry:e.slice(0,-1)}); render(); return; } if(e.length>=4)return; e+=d; setS({pinEntry:e});
-  if(e.length===4){ render(); setTimeout(()=>previewEnter(),220); } else render(); }
+const PREVIEW_PIN='050103', PIN_LEN=PREVIEW_PIN.length;
+function pinDotsHTML(){ const n=STATE.pinEntry.length;
+  return Array.from({length:PIN_LEN},(_,i)=>`<div style="width:12px;height:12px;border-radius:50%;border:1px solid ${i<n?'transparent':'rgba(255,255,255,.2)'};background:${i<n?'linear-gradient(135deg,#8B5CF6,#D946EF)':'transparent'};transition:.15s"></div>`).join(''); }
+function syncPinDots(){ const d=document.getElementById('pinDots'); if(d) d.innerHTML=pinDotsHTML(); }
+/* Surgically update only the dots — no full re-render, so the screen no longer flashes per keypress. */
+function pinTap(d){ let e=STATE.pinEntry;
+  if(d==='back'){ setS({pinEntry:e.slice(0,-1)}); syncPinDots(); return; }
+  if(e.length>=PIN_LEN) return;
+  e+=d; setS({pinEntry:e}); syncPinDots();
+  if(e.length===PIN_LEN){ if(e===PREVIEW_PIN) setTimeout(()=>previewEnter(),200); else setTimeout(pinReject,170); } }
+function pinReject(){ const c=document.getElementById('pinCard'); if(c){ c.style.animation='oyShake .4s'; setTimeout(()=>{ if(c)c.style.animation=''; },420); } setS({pinEntry:''}); syncPinDots(); }
+function pinKey(ev){ if(STATE.screen!=='login'||STATE.authStep!=='pin') return;
+  if(ev.key>='0'&&ev.key<='9'){ ev.preventDefault(); pinTap(ev.key); }
+  else if(ev.key==='Backspace'){ ev.preventDefault(); pinTap('back'); }
+  else if(ev.key==='Escape'){ ev.preventDefault(); setS({authStep:'roles',pinEntry:''}); render(); } }
+window.addEventListener('keydown',pinKey);
 window.pickRole=pickRole; window.pinTap=pinTap; window.setS=setS; window.render=render;
 function siErr(m){ const e=document.getElementById('siErr'); if(e)e.textContent=m||''; }
 function doGoogle(){ const p=new firebase.auth.GoogleAuthProvider(); auth.signInWithPopup(p).catch(e=>siErr(e.message)); }
@@ -460,7 +475,7 @@ const INSP_STAGES=['','READY','PASS','FAIL'], INSP_LABEL={'':'Not started',READY
 const M={ layers:{footings:true,embeds:true,pours:true,rfi:true,markups:true,grid:true},
   view:{tx:0,ty:0,s:1,init:false}, box:{w:1000,h:700}, plan:{pw:0,ph:0,ox:0,oy:0},
   footings:[], byNo:{}, base:null, ox:0, oy:0, calib:{dx:0,dy:0,sx:1,sy:1},
-  sel:null, hovFoot:null, hovPour:null, selPour:null, tool:'pan', colorMode:'status', seqFilter:'ALL', calibMode:false, drag:null };
+  sel:null, hovFoot:null, hovPour:null, selPour:null, tool:'pan', scrollMode:'pan', dockOpen:true, colorMode:'status', seqFilter:'ALL', calibMode:false, drag:null };
 
 function sideFt(t){ t=String(t).toUpperCase(); const F={F6:5,F6A:5,F7:5.5,F7A:6,F8:6.5,F8A:7,F9:7.5,F10:8,F10A:8.5,F11:9,F12:9.5,F12B:10,F12C:10,F14:11,F201:6,F202:6};
   if(F[t]!=null)return F[t]; if(t.indexOf('MPC')===0){const n=parseInt(t.replace(/\D/g,''))||6;return n>=18?26:(n>=8?22:(n>=6?20:18));}
@@ -507,6 +522,7 @@ function renderMap(b){
       <div style="flex:1"></div>
       <a class="ghostbtn" href="${APP_URLS.cup}" target="_blank"><span class="ms" style="font-size:15px;color:#8B5CF6">open_in_new</span>CUP Pour Dashboard</a>
       <a class="ghostbtn" href="${APP_URLS.embed}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>EmbedYap</a>
+      <button class="ghostbtn" onclick="toggleDock()" title="Show / hide info panel" style="padding:7px 9px"><span class="ms" style="font-size:16px">${M.dockOpen?'right_panel_close':'right_panel_open'}</span></button>
     </div>
     <div style="flex-shrink:0;display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid rgba(255,255,255,.06)">
       <span class="mono" style="font-size:10px;color:#5B636F">SEQUENCE</span>
@@ -520,6 +536,9 @@ function renderMap(b){
         <canvas id="mapcanvas" style="position:absolute;inset:0;cursor:grab;touch-action:none"></canvas>
         <div style="position:absolute;top:30px;right:18px;display:flex;flex-direction:column;align-items:center;gap:2px;color:#5B636F;pointer-events:none"><span class="ms" style="font-size:18px">navigation</span><span class="mono" style="font-size:9px">N</span></div>
         <div style="position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:6px">
+          <button id="panModeBtn" class="ghostbtn" style="width:36px;height:34px;justify-content:center;padding:0;${M.scrollMode==='pan'?'background:rgba(139,92,246,.22);color:#fff':''}" title="Pan tool (V) — scroll to pan" onclick="setScrollMode('pan')"><span class="ms" style="font-size:18px">pan_tool</span></button>
+          <button id="zoomModeBtn" class="ghostbtn" style="width:36px;height:34px;justify-content:center;padding:0;${M.scrollMode==='zoom'?'background:rgba(139,92,246,.22);color:#fff':''}" title="Zoom tool (Z) — scroll to zoom" onclick="setScrollMode('zoom')"><span class="ms" style="font-size:18px">zoom_in</span></button>
+          <div style="height:1px;background:rgba(255,255,255,.12);margin:1px 4px"></div>
           <button class="ghostbtn" style="width:36px;height:34px;justify-content:center;padding:0" onclick="zoomBtn(1.2)"><span class="ms" style="font-size:18px">add</span></button>
           <button class="ghostbtn" style="width:36px;height:34px;justify-content:center;padding:0" onclick="zoomBtn(.83)"><span class="ms" style="font-size:18px">remove</span></button>
           <button class="ghostbtn" style="width:36px;height:34px;justify-content:center;padding:0" onclick="fitMap()"><span class="ms" style="font-size:18px">fit_screen</span></button>
@@ -531,7 +550,7 @@ function renderMap(b){
         <div id="floatcard"></div>
         <div id="calibpanel"></div>
       </div>
-      <div id="dock" style="width:300px;flex-shrink:0;border-left:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.012);display:flex;flex-direction:column;min-height:0"></div>
+      ${M.dockOpen?`<div id="dock" style="width:300px;flex-shrink:0;border-left:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.012);display:flex;flex-direction:column;min-height:0"></div>`:''}
       <div id="embedpanel"></div>
     </div>`;
   _cv=document.getElementById('mapcanvas'); _ctx=_cv.getContext('2d');
@@ -595,6 +614,19 @@ const clampS=s=>Math.max(.4,Math.min(8,s));
 function zoomAt(px,py,f){ const ns=clampS(M.view.s*f),k=ns/M.view.s; M.view.s=ns;M.view.tx=px-(px-M.view.tx)*k;M.view.ty=py-(py-M.view.ty)*k; repaint(); }
 function toggleNote(){ M.tool=M.tool==='note'?'pan':'note'; const b=document.getElementById('noteBtn'); if(b)b.style.background=M.tool==='note'?'rgba(139,92,246,.22)':''; if(_cv)_cv.style.cursor=M.tool==='note'?'crosshair':'grab'; }
 window.setColorMode=setColorMode; window.setSeq=setSeq; window.toggleLayer=toggleLayer; window.hovPour=hovPour; window.isoPour=isoPour; window.zoomBtn=zoomBtn; window.fitMap=fitMap; window.toggleNote=toggleNote;
+// Bluebeam-style tool modes: Pan (V) = scroll pans · Zoom (Z) = scroll zooms · pinch/ctrl always zooms
+function setScrollMode(m){ M.scrollMode=m;
+  const set=(id,on)=>{const b=document.getElementById(id);if(b){b.style.background=on?'rgba(139,92,246,.22)':'';b.style.color=on?'#fff':'';}};
+  set('panModeBtn',m==='pan'); set('zoomModeBtn',m==='zoom');
+  if(_cv&&M.tool!=='note')_cv.style.cursor=m==='zoom'?'zoom-in':'grab';
+  toast(m==='zoom'?'Zoom tool — scroll to zoom (V = pan)':'Pan tool — scroll to pan (Z = zoom)'); }
+function toggleDock(){ M.dockOpen=!M.dockOpen; renderBody(); }
+window.setScrollMode=setScrollMode; window.toggleDock=toggleDock;
+function showPourTip(p,px,py){ const host=document.getElementById('hovcard'); if(!host)return; const c=POURCOL[p.status]||'#566072';
+  const left=Math.min(px+14,M.box.w-210),top=Math.min(py+14,M.box.h-80);
+  host.innerHTML=`<div style="position:absolute;left:${left}px;top:${top}px;z-index:8;background:rgba(16,20,26,.95);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.12);border-radius:11px;padding:10px 12px;box-shadow:0 14px 40px rgba(0,0,0,.6);pointer-events:none;animation:oyFade .12s ease;max-width:210px">
+    <div style="display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:2px;background:${c};box-shadow:0 0 8px ${c}"></span><span style="font-size:12.5px;font-weight:650">${esc(p.name)}</span></div>
+    <div style="font-size:10.5px;color:#8A92A0;margin-top:4px">${POURLBL[p.status]||p.status}${p.sequence?' · Seq '+p.sequence:''}${p.cy?' · '+p.cy+' CY':''}</div></div>`; }
 
 function toggleCalib(){ M.calibMode=!M.calibMode; const btn=document.getElementById('calibBtn'); if(btn)btn.style.background=M.calibMode?'rgba(139,92,246,.22)':'';
   const p=document.getElementById('calibpanel'); if(!M.calibMode){p.innerHTML='';return;}
@@ -659,9 +691,7 @@ function drawPins(ctx){ _hasUrgent=false;
 }
 function drawPours(ctx){ for(const p of Object.values(_poursCache)){ if(!p.pts)continue; const c=POURCOL[p.status]||'#566072';
   ctx.beginPath();p.pts.forEach((pt,i)=>{const s=S(pt[0],pt[1]);i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y);});ctx.closePath();
-  const sel=M.selPour===p.id||M.hovPour===p.id; ctx.fillStyle=hexA(c,sel?.16:.08);ctx.fill();ctx.strokeStyle=hexA(c,sel?.95:.5);ctx.lineWidth=sel?2:1.3;ctx.stroke();
-  const ct=p.pts.reduce((a,b)=>[a[0]+b[0],a[1]+b[1]],[0,0]).map(v=>v/p.pts.length),s=S(ct[0],ct[1]);
-  ctx.fillStyle='rgba(231,236,246,.8)';ctx.font="600 10px Inter,sans-serif";ctx.textAlign='center';ctx.fillText(p.name.slice(0,20),s.x,s.y);} }
+  const sel=M.selPour===p.id||M.hovPour===p.id; ctx.fillStyle=hexA(c,sel?.18:.08);ctx.fill();ctx.strokeStyle=hexA(c,sel?.95:.45);ctx.lineWidth=sel?2:1.3;ctx.stroke(); } }
 function drawMarkups(ctx){ for(const [id,m] of Object.entries(DATA.markups)){ if(typeof m.x!=='number')continue; const s=S(m.x,m.y);
   ctx.fillStyle='#F59E0B';ctx.beginPath();ctx.moveTo(s.x,s.y-9);ctx.lineTo(s.x+5,s.y-3);ctx.lineTo(s.x+5,s.y);ctx.lineTo(s.x-5,s.y);ctx.lineTo(s.x-5,s.y-3);ctx.closePath();ctx.fill();
   if(m.text){ctx.font="500 10px Inter,sans-serif";const w=ctx.measureText(m.text).width;ctx.fillStyle='rgba(8,11,16,.8)';ctx.beginPath();rr(ctx,s.x+7,s.y-9,w+8,15,3);ctx.fill();ctx.fillStyle='#F5E3A8';ctx.textAlign='left';ctx.fillText(m.text,s.x+11,s.y+1.5);}} }
@@ -682,9 +712,9 @@ function hitTest(px,py){
 }
 function pointInPoly(x,y,pts){ let c=false; for(let i=0,j=pts.length-1;i<pts.length;j=i++){const[xi,yi]=pts[i],[xj,yj]=pts[j];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/((yj-yi)||1e-9)+xi))c=!c;} return c; }
 function wireMap(){ const el=_cv;
-  // two-finger scroll = PAN; pinch / ctrl+wheel = ZOOM (and the +/- buttons zoom)
+  // Pan tool (default): scroll pans. Zoom tool / pinch / ctrl: scroll zooms. (Bluebeam-style)
   el.addEventListener('wheel',e=>{ e.preventDefault(); const r=el.getBoundingClientRect();
-    if(e.ctrlKey){ zoomAt(e.clientX-r.left,e.clientY-r.top,e.deltaY<0?1.08:0.93); }
+    if(e.ctrlKey || M.scrollMode==='zoom'){ zoomAt(e.clientX-r.left,e.clientY-r.top,e.deltaY<0?1.08:0.93); }
     else { M.view.tx-=e.deltaX; M.view.ty-=e.deltaY; repaint(); } },{passive:false});
   el.addEventListener('pointerdown',e=>{const r=el.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
     if(M.tool==='note'){const f=toFrac(x,y);addMarkup(f.fx,f.fy);toggleNote();return;}
@@ -692,10 +722,12 @@ function wireMap(){ const el=_cv;
     el.setPointerCapture(e.pointerId);el.style.cursor='grabbing';M.drag={x,y,tx:M.view.tx,ty:M.view.ty,moved:false};});
   el.addEventListener('pointermove',e=>{const r=el.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
     if(M.drag){M.view.tx=M.drag.tx+(x-M.drag.x);M.view.ty=M.drag.ty+(y-M.drag.y);M.drag.moved=true;repaint();return;}
-    const hit=hitTest(x,y); if(hit&&hit.kind==='foot'){ if(M.hovFoot!==hit.id){M.hovFoot=hit.id;showHovCard(hit.data,x,y);repaint();} }
-    else if(M.hovFoot){M.hovFoot=null;const hc=document.getElementById('hovcard');if(hc)hc.innerHTML='';repaint();}});
-  el.addEventListener('pointerup',e=>{if(M.drag&&!M.drag.moved){M.sel=null;closeDetail();repaint();}M.drag=null;el.style.cursor=M.tool==='note'?'crosshair':'grab';});
-  el.addEventListener('pointerleave',()=>{if(M.hovFoot){M.hovFoot=null;const hc=document.getElementById('hovcard');if(hc)hc.innerHTML='';repaint();}});
+    const hit=hitTest(x,y);
+    if(hit&&hit.kind==='foot'){ M.hovPour=null; if(M.hovFoot!==hit.id){M.hovFoot=hit.id;showHovCard(hit.data,x,y);repaint();} }
+    else if(hit&&hit.kind==='pour'){ M.hovFoot=null; if(M.hovPour!==hit.id){M.hovPour=hit.id;repaint();} showPourTip(hit.data,x,y); }
+    else if(M.hovFoot||M.hovPour){M.hovFoot=null;M.hovPour=null;const hc=document.getElementById('hovcard');if(hc)hc.innerHTML='';repaint();}});
+  el.addEventListener('pointerup',e=>{if(M.drag&&!M.drag.moved){M.sel=null;closeDetail();repaint();}M.drag=null;el.style.cursor=M.tool==='note'?'crosshair':(M.scrollMode==='zoom'?'zoom-in':'grab');});
+  el.addEventListener('pointerleave',()=>{if(M.hovFoot||M.hovPour){M.hovFoot=null;M.hovPour=null;const hc=document.getElementById('hovcard');if(hc)hc.innerHTML='';repaint();}});
   el.addEventListener('dragover',e=>{if(window.__dragRfi)e.preventDefault();});
   el.addEventListener('drop',e=>{if(!window.__dragRfi)return;e.preventDefault();const r=el.getBoundingClientRect(),f=toFrac(e.clientX-r.left,e.clientY-r.top);dropRfi(window.__dragRfi,f.fx,f.fy);window.__dragRfi=null;});
 }
@@ -1028,6 +1060,10 @@ async function sendChat(){ const t=(STATE.chatInput||'').trim(); if(!t||STATE.ch
   STATE.chatBusy=false; renderCopilot();
 }
 window.sendChat=sendChat;
+
+// Bluebeam-style keyboard shortcuts on the map: V=pan, Z=zoom, F=fit
+document.addEventListener('keydown',e=>{ if(!onMap())return; const tg=(e.target&&e.target.tagName)||''; if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT')return; if(e.metaKey||e.ctrlKey||e.altKey)return;
+  const k=e.key.toLowerCase(); if(k==='v')setScrollMode('pan'); else if(k==='z')setScrollMode('zoom'); else if(k==='f')fitMap(); });
 
 boot();
 </script>

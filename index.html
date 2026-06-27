@@ -1085,10 +1085,10 @@ function embedInvHTML(){ const pins=Object.values(DATA.pins||{}); const types=DA
   const inst=pins.filter(p=>p.installed).length, todo=pins.length-inst, next=pins.filter(p=>p.nextPour&&!p.installed).length;
   const knife=pins.filter(p=>p.knifePlate).length, stub=pins.filter(p=>p.stubColumn).length, marks=new Set(pins.map(p=>p.embedId).filter(Boolean)).size;
   const pct=pins.length?Math.round(inst/pins.length*100):0;
-  const grp=STATE.embedGroup||'sequence'; const q=((STATE.searchByTab&&STATE.searchByTab.tools)||'').toLowerCase();
+  let grp=STATE.embedGroup||'sequence'; if(grp==='area')grp='sequence'; const q=((STATE.searchByTab&&STATE.searchByTab.tools)||'').toLowerCase();
   const stat=(v,l,c,ic)=>`<div class="card" style="padding:14px 18px;min-width:120px"><div style="display:flex;align-items:center;gap:7px;color:#8A92A0;font-size:11px"><span class="ms" style="font-size:15px;color:${c}">${ic}</span>${l}</div><div class="mono" style="font-size:25px;font-weight:750;margin-top:6px;color:${c}">${v}</div></div>`;
   const head=`<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap">
-    <div style="display:flex;align-items:center;gap:7px"><span style="font-size:11px;color:#7A8290">Group by</span><div class="seg"><button class="segbtn ${grp==='sequence'?'on':''}" onclick="setEmbedGroup('sequence')">Sequence</button><button class="segbtn ${grp==='area'?'on':''}" onclick="setEmbedGroup('area')">Area</button><button class="segbtn ${grp==='type'?'on':''}" onclick="setEmbedGroup('type')">Type</button></div></div>
+    <div style="display:flex;align-items:center;gap:7px"><span style="font-size:11px;color:#7A8290">Group by</span><div class="seg"><button class="segbtn ${grp==='sequence'?'on':''}" onclick="setEmbedGroup('sequence')">Sequence</button><button class="segbtn ${grp==='type'?'on':''}" onclick="setEmbedGroup('type')">Type</button></div></div>
     <div style="flex:1"></div>
     <a class="ghostbtn" href="${APP_URLS.embed}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>EmbedYap</a></div>`;
   const stats=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
@@ -1123,12 +1123,9 @@ function toolsHTML(){ const all=Object.values(DATA.tools||{}); const view=STATE.
   const grp=STATE.toolGroup||'category';
   const seg=`<div class="seg"><button class="segbtn ${view==='summary'?'on':''}" onclick="setToolView('summary')"><span class="ms" style="font-size:15px;vertical-align:-3px">insights</span> Summary</button><button class="segbtn ${view==='grouped'?'on':''}" onclick="setToolView('grouped')"><span class="ms" style="font-size:15px;vertical-align:-3px">grid_view</span> Grouped</button><button class="segbtn ${view==='inventory'?'on':''}" onclick="setToolView('inventory')"><span class="ms" style="font-size:15px;vertical-align:-3px">table_rows</span> Inventory</button></div>`;
   const groupToggle=view==='grouped'?`<div style="display:flex;align-items:center;gap:7px"><span style="font-size:11px;color:#7A8290">Group by</span><div class="seg"><button class="segbtn ${grp==='category'?'on':''}" onclick="setToolGroup('category')">Category</button><button class="segbtn ${grp==='brand'?'on':''}" onclick="setToolGroup('brand')">Brand</button></div></div>`:'';
-  const search=view==='inventory'?`<input class="fld" placeholder="Search tools…" value="${esc(STATE.toolQ||'')}" oninput="toolSearch(this.value)" style="width:190px">`
-    :view==='grouped'?`<input class="fld" placeholder="Search tools…" value="${esc(STATE.toolQ||'')}" oninput="toolGroupSearch(this.value)" style="width:190px">`:'';
   const head=`<div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap">
     ${seg}${groupToggle}
     <div style="flex:1"></div>
-    ${search}
     <button class="ghostbtn" onclick="exportTools()"><span class="ms" style="font-size:15px">download</span>Export</button>
     <a class="ghostbtn" href="${APP_URLS.tools}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>Tool app</a></div>`;
   const body=view==='summary'?toolsSummary(all,onSite,attn,monthly):view==='grouped'?toolGrouped(all):toolsTable();

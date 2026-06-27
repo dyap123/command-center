@@ -117,6 +117,7 @@ const CC="command-center/";
 const ccRef=p=>db.ref(CC+p), ccSet=(p,d)=>db.ref(CC+p).set(d), ccUpdate=(p,d)=>db.ref(CC+p).update(d);
 const ccPush=(p,d)=>db.ref(CC+p).push(d), ccGet=p=>db.ref(CC+p).once('value').then(s=>s.val()), ccListen=(p,cb)=>db.ref(CC+p).on('value',s=>cb(s.val()));
 const rootListen=(p,cb)=>db.ref(p).on('value',s=>cb(s.val())), rootGet=p=>db.ref(p).once('value').then(s=>s.val());
+const rootSet=(p,d)=>db.ref(p).set(d), rootUpdate=(p,d)=>db.ref(p).update(d), rootRemove=p=>db.ref(p).remove();
 const safeKey=k=>String(k).replace(/[.$#\[\]\/]/g,'_');
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const hexA=(h,a)=>{ if(!h||h[0]!=='#')return h; const n=parseInt(h.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; };
@@ -133,7 +134,7 @@ const NAV=[
   {key:'dashboard',label:'Dashboard',icon:'space_dashboard'},
   {key:'map',label:'The Map',icon:'map',badge:'LIVE'},
   {key:'schedule',label:'Schedule',icon:'calendar_month'},
-  {key:'tools',label:'Tools',icon:'construction'},
+  {key:'tools',label:'Inventory',icon:'inventory_2'},
   {key:'attendance',label:'Attendance',icon:'groups'},
   {key:'rfis',label:'RFIs',icon:'help_center'},
   {key:'inspections',label:'Inspections',icon:'fact_check'},
@@ -213,7 +214,8 @@ function startLegacySync(){ if(_legacy)return; _legacy=true;
   rootListen('cup-foundation/pours',v=>{ DATA.cupPours=v||{}; refreshPours(); });
   rootListen('pours-user',v=>{ DATA.poursUser=v||{}; refreshPours(); });
   rootListen('embed-tracker/zones',v=>{ DATA.etZones=v||{}; refreshPours(); });
-  rootListen('embed-tracker/pins',v=>{ DATA.pins=v||{}; if(onMap()){renderLayerPanel();repaint();} softUpdate(); });
+  rootListen('embed-tracker/embeds',v=>{ DATA.embedTypes=v||{}; if(STATE.activeTab==='tools'&&(STATE.invKind||'tools')==='embed')renderBody(); });
+  rootListen('embed-tracker/pins',v=>{ DATA.pins=v||{}; if(STATE.activeTab==='tools'&&(STATE.invKind||'tools')==='embed')renderBody(); if(onMap()){renderLayerPanel();repaint();} softUpdate(); });
   rootListen('embed-tracker/grid',v=>{ DATA.grid=v; applyGrid(); });
   rootListen('tool-tracker/assets',v=>{ DATA.tools=v||{}; if(STATE.activeTab==='tools')renderBody(); softUpdate(); });
   rootListen('look-ahead-schedule/projects',v=>{ DATA.superSched.projects=v||{}; if(STATE.activeTab==='schedule')renderBody(); });
@@ -389,7 +391,7 @@ function renderRail(){
 function renderTopbar(){
   const tb=document.getElementById('topbar'); if(!tb)return;
   tb.style.cssText=`height:60px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;padding:0 22px;gap:16px;background:rgba(11,14,19,.6);backdrop-filter:blur(10px);z-index:6`;
-  const TT={dashboard:['Dashboard',"What's happening on site right now"],map:['The Map','Footings + embeds on shared gridlines · live'],schedule:['Schedule','Look-ahead → pours · '+activeRole().toUpperCase()+' view'],tools:['Tools','Live inventory synced from Tool app'],attendance:['Attendance','Daily sign-in roster'],rfis:['RFIs','Requests for information'],inspections:['Inspections','Inspection status · synced'],submittals:['Submittals','Submittal log'],admin:['Admin','Users & roles']};
+  const TT={dashboard:['Dashboard',"What's happening on site right now"],map:['The Map','Footings + embeds on shared gridlines · live'],schedule:['Schedule','Look-ahead → pours · '+activeRole().toUpperCase()+' view'],tools:['Inventory','Tools + embeds · synced from the field apps'],attendance:['Attendance','Daily sign-in roster'],rfis:['RFIs','Requests for information'],inspections:['Inspections','Inspection status · synced'],submittals:['Submittals','Submittal log'],admin:['Admin','Users & roles']};
   const tt=TT[STATE.activeTab]||['',''];
   const pr=roleObj(activeRole());
   const menu=STATE.roleMenuOpen?`<div style="position:absolute;top:46px;right:0;width:230px;background:rgba(22,26,33,.97);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);border-radius:13px;padding:8px;box-shadow:0 24px 60px rgba(0,0,0,.6);z-index:20;animation:oyUp .18s ease">
@@ -401,9 +403,9 @@ function renderTopbar(){
       <div onclick="doSignOut()" style="display:flex;align-items:center;gap:9px;padding:9px 10px;margin-top:4px;border-top:1px solid rgba(255,255,255,.07);cursor:pointer;color:#A6AEBB"><span class="ms" style="font-size:16px">logout</span><span style="font-size:12.5px">Sign out</span></div></div>`:'';
   tb.innerHTML=`<div><div style="font-size:16px;font-weight:650;letter-spacing:-.3px">${tt[0]}</div><div style="font-size:11px;color:#7A8290">${tt[1]}</div></div>
     <div style="flex:1"></div>
-    <div style="display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:6px 11px">
-      <span class="ms" style="font-size:16px;color:#7A8290">search</span><span style="font-size:12px;color:#5B636F">Search grid, pour, embed…</span>
-      <span class="mono" style="font-size:10px;color:#5B636F;background:rgba(255,255,255,.05);padding:1px 5px;border-radius:4px;margin-left:6px">⌘K</span></div>
+    ${SEARCH_TABS[STATE.activeTab]?`<div style="display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:5px 11px">
+      <span class="ms" style="font-size:16px;color:#7A8290">search</span><input id="topSearch" value="${esc((STATE.searchByTab&&STATE.searchByTab[STATE.activeTab])||'')}" oninput="onTopSearch(this.value)" placeholder="${SEARCH_TABS[STATE.activeTab]}" autocomplete="off" style="background:transparent;border:0;outline:0;color:#E6E9EF;font-size:12px;width:188px">
+      <span class="ms" onclick="clearTopSearch()" style="font-size:15px;color:#7A8290;cursor:pointer">close</span></div>`:''}
     <button onclick="toggleLock()" class="ghostbtn" title="Lock / unlock editing (L) — PIN to unlock" style="${EDIT_LOCKED?'':'border-color:rgba(34,197,94,.5);color:#86efac'}"><span class="ms" style="font-size:16px">${EDIT_LOCKED?'lock':'lock_open'}</span>${EDIT_LOCKED?'Locked':'Editing'}</button>
     <div style="position:relative">
       <div onclick="toggleRoleMenu()" style="display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:6px 10px 6px 7px;cursor:pointer">
@@ -418,6 +420,14 @@ function switchRole(k){ if(AUTH_OK && realRoleKey()!=='admin'){ setS({roleMenuOp
 window.toggleRoleMenu=toggleRoleMenu; window.switchRole=switchRole;
 function go(tab){ if(navLocked(tab))return; setS({activeTab:tab,roleMenuOpen:false}); M.sel=null; renderRail(); renderTopbar(); renderBody(); }
 window.go=go;
+/* ---- context-aware top search (filters [data-search] rows in the active tab) ---- */
+const SEARCH_TABS={schedule:'Find a task…',tools:'Search inventory…',rfis:'Search RFIs…',inspections:'Search inspections…',attendance:'Search crew…',submittals:'Search submittals…'};
+function onTopSearch(v){ (STATE.searchByTab=STATE.searchByTab||{})[STATE.activeTab]=v; applyTopSearch(); }
+function clearTopSearch(){ (STATE.searchByTab=STATE.searchByTab||{})[STATE.activeTab]=''; applyTopSearch(); renderTopbar(); const i=document.getElementById('topSearch'); if(i)i.focus(); }
+function applyTopSearch(){ const q=((STATE.searchByTab&&STATE.searchByTab[STATE.activeTab])||'').toLowerCase().trim(); const body=document.getElementById('body'); if(!body)return;
+  const secOK={}; body.querySelectorAll('[data-search]').forEach(r=>{ const m=!q||(r.dataset.search||'').indexOf(q)>=0; r.style.display=m?'':'none'; if(m&&r.dataset.sec)secOK[r.dataset.sec]=1; });
+  body.querySelectorAll('[data-secband]').forEach(r=>{ r.style.display=(!q||secOK[r.dataset.secband])?'':'none'; }); }
+window.onTopSearch=onTopSearch; window.clearTopSearch=clearTopSearch;
 
 function renderBody(){
   const b=document.getElementById('body'); if(!b)return; const t=STATE.activeTab;
@@ -425,12 +435,13 @@ function renderBody(){
   b.style.cssText='flex:1;overflow:auto;position:relative';
   if(t==='dashboard') b.innerHTML=dashboardHTML();
   else if(t==='schedule') b.innerHTML=scheduleHTML();
-  else if(t==='tools') b.innerHTML=toolsHTML();
+  else if(t==='tools') b.innerHTML=inventoryHTML();
   else if(t==='attendance') b.innerHTML=attendanceHTML();
   else if(t==='rfis') b.innerHTML=rfiHTML();
   else if(t==='inspections') b.innerHTML=inspectionsHTML();
   else if(t==='admin') b.innerHTML=adminHTML();
   else b.innerHTML=otherHTML(t);
+  applyTopSearch();
 }
 
 /* ---- shared UI ---- */
@@ -937,7 +948,7 @@ function activeSchedProject(){ return curSchedSrc()==='super'?superActiveProject
 function setSchedSource(s){ STATE.schedSource=s; renderBody(); }
 window.setSchedSource=setSchedSource;
 function scheduleHTML(){
-  const src=curSchedSrc(); const p=activeSchedProject(); const canEdit=canView('scheduleEdit'); const sv=STATE.schedView||(activeRole()==='super'?'timeline':'list');
+  const src=curSchedSrc(); const p=activeSchedProject(); const canEdit=canView('scheduleEdit'); const sv=STATE.schedView||'timeline';
   const tabs=[['list','List','view_list'],['timeline','Timeline','view_timeline']].map(t=>`<button onclick="setSched('${t[0]}')" class="segbtn ${sv===t[0]?'on':''}" style="display:flex;align-items:center;gap:6px"><span class="ms" style="font-size:15px">${t[2]}</span>${t[1]}</button>`).join('');
   const srcToggle=`<div class="seg"><button onclick="setSchedSource('super')" class="segbtn ${src==='super'?'on':''}" title="Live from SuperYap">SuperYap${hasSuper()?' <span style="color:#22C55E">●</span>':''}</button><button onclick="setSchedSource('imported')" class="segbtn ${src==='imported'?'on':''}" title="Imported Excel / PDF">Imported</button></div>`;
   const head=`<div style="flex-shrink:0;display:flex;align-items:center;gap:12px;padding:14px 20px 12px;flex-wrap:wrap">
@@ -952,14 +963,36 @@ function scheduleHTML(){
 }
 function setSched(v){ STATE.schedView=v; renderBody(); }
 window.setSched=setSched;
-function listHTML(p){ const tasks=Object.values(p.tasks||{}); const pourTasks=tasks.filter(t=>/pour/i.test(t.name)||/pour/i.test(t.company||''));
-  const rows=tasks.sort((a,b)=>(a.start||'').localeCompare(b.start||'')).map(t=>{const isPour=/pour/i.test(t.name)||/pour/i.test(t.company||'');const c=isPour?'#22C55E':(t.crewColor||crewColor(t.company));return `<tr><td><div style="display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:50%;background:${c}"></span>${isPour?'<span class="ms" style="font-size:14px;color:#22C55E">water_drop</span>':''}<span style="font-weight:600">${esc(t.name)}</span></div></td><td class="mono">${esc(t.start||'')}</td><td class="mono">${esc(t.finish||'')}</td><td class="mono" style="text-align:center">${t.days||''}</td><td style="color:#9AA3B0">${esc(t.company||t.companyId||'')}</td></tr>`;}).join('');
+/* ---- schedule editing (super → look-ahead-schedule · imported → command-center/schedule) ---- */
+function schedCompanies(){ return Object.assign({}, LA_CO_DEFAULT, (DATA.superSched&&DATA.superSched.companies)||{}); }
+function schedActivePid(){ const sp=DATA.superSched; if(!sp||!sp.projects||!Object.keys(sp.projects).length)return null; return (sp.meta&&sp.meta.activeProjectId&&sp.projects[sp.meta.activeProjectId])?sp.meta.activeProjectId:Object.keys(sp.projects)[0]; }
+function schedRawTask(tid){ if(curSchedSrc()==='super'){ const pid=schedActivePid(); const pj=pid&&DATA.superSched.projects[pid]; return pj&&pj.tasks?pj.tasks[tid]:null; } return DATA.schedule&&DATA.schedule.tasks?DATA.schedule.tasks[tid]:null; }
+function schedHol(){ return (DATA.superSched&&DATA.superSched.holidays)||{}; }
+async function schedSetField(tid,field,val){ if(!can('scheduleEdit'))return toast('Only Super/Admin can edit the schedule','warn');
+  if(field==='days')val=Math.max(1,parseInt(val)||1); const t=schedRawTask(tid); if(!t)return;
+  try{ if(curSchedSrc()==='super'){ const pid=schedActivePid(); if(!pid)return; const u={}; u[field]=val; await rootUpdate('look-ahead-schedule/projects/'+pid+'/tasks/'+tid,u); }
+    else { const cur=Object.assign({},t); cur[field]=val; if(field==='company')cur.companyId=String(val).toLowerCase(); if(field==='days'||field==='start'){ cur.finish=laFinish(cur.start||DATA.schedule.startDate,Math.max(1,parseInt(cur.days)||1),schedHol()); } await ccUpdate('schedule/tasks/'+tid,cur); }
+  }catch(e){ toast(e.message,'err'); } }
+async function schedDelTask(tid){ if(!can('scheduleEdit'))return toast('Only Super/Admin can edit','warn'); if(!confirm('Delete this activity?'))return;
+  try{ if(curSchedSrc()==='super'){ const pid=schedActivePid(); if(pid)await rootRemove('look-ahead-schedule/projects/'+pid+'/tasks/'+tid); } else { await db.ref(CC+'schedule/tasks/'+tid).remove(); } toast('Deleted','ok'); }catch(e){ toast(e.message,'err'); } }
+async function schedAddTask(sid){ if(!can('scheduleEdit'))return toast('Only Super/Admin can edit','warn'); const tid=uid('t_');
+  try{ if(curSchedSrc()==='super'){ const pid=schedActivePid(); if(!pid)return; const pj=DATA.superSched.projects[pid]; const sibs=Object.values(pj.tasks||{}).filter(x=>x.sectionId===sid); await rootSet('look-ahead-schedule/projects/'+pid+'/tasks/'+tid,{sectionId:sid,order:sibs.length,name:'New activity',companyId:'webcor',days:1,depMode:'afterPrev',lag:0}); }
+    else { const pj=DATA.schedule; if(!pj)return; const sibs=Object.values(pj.tasks||{}).filter(x=>x.sectionId===sid); const start=pj.startDate; await ccSet('schedule/tasks/'+tid,{sectionId:sid,order:sibs.length,name:'New activity',company:'',companyId:'',days:1,start,finish:laFinish(start,1,schedHol())}); } }catch(e){ toast(e.message,'err'); } }
+function schedToggleSec(sid){ STATE.schedCollapsed=STATE.schedCollapsed||{}; STATE.schedCollapsed[sid]=!STATE.schedCollapsed[sid]; renderBody(); }
+window.schedSetField=schedSetField; window.schedDelTask=schedDelTask; window.schedAddTask=schedAddTask; window.schedToggleSec=schedToggleSec;
+function schedCrewControl(t,src,cos){ if(src==='super'){ const known=cos[t.companyId]; return `<select onchange="schedSetField('${t.id}','companyId',this.value)" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#C7CDD6;font-size:11px;padding:3px 5px;max-width:118px">${Object.entries(cos).map(([cid,c])=>`<option value="${cid}" ${cid===t.companyId?'selected':''}>${esc(c.name)}</option>`).join('')}${known||!t.companyId?'':`<option value="${esc(t.companyId)}" selected>${esc(t.company||t.companyId)}</option>`}</select>`; }
+  return `<input value="${esc(t.company||'')}" onchange="schedSetField('${t.id}','company',this.value)" placeholder="Crew" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#C7CDD6;font-size:11px;padding:3px 6px;max-width:118px">`; }
+function listHTML(p){ const canEdit=canView('scheduleEdit'); const src=curSchedSrc(); const cos=schedCompanies();
+  const tasks=Object.entries(p.tasks||{}).map(([tid,t])=>Object.assign({id:tid},t)); const pourTasks=tasks.filter(t=>/pour/i.test(t.name)||/pour/i.test(t.company||''));
+  const rows=tasks.sort((a,b)=>(a.start||'').localeCompare(b.start||'')).map(t=>{const isPour=/pour/i.test(t.name)||/pour/i.test(t.company||'');const c=isPour?'#22C55E':(t.crewColor||crewColor(t.company));const hay=esc((t.name+' '+(t.company||t.companyId||'')).toLowerCase());
+    return `<tr data-search="${hay}"><td><div style="display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:50%;background:${c};flex-shrink:0"></span>${isPour?'<span class="ms" style="font-size:14px;color:#22C55E">water_drop</span>':''}${canEdit?`<input value="${esc(t.name)}" onchange="schedSetField('${t.id}','name',this.value)" style="flex:1;min-width:0;background:transparent;border:0;outline:0;color:#E6E9EF;font-size:12.5px;font-weight:600">`:`<span style="font-weight:600">${esc(t.name)}</span>`}</div></td><td class="mono">${esc(t.start||'')}</td><td class="mono">${esc(t.finish||'')}</td><td class="mono" style="text-align:center">${canEdit?`<input type="number" min="1" value="${t.days||1}" onchange="schedSetField('${t.id}','days',this.value)" style="width:42px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#E6E9EF;font-size:11px;text-align:center;padding:2px">`:(t.days||'')}</td><td style="color:#9AA3B0">${canEdit?schedCrewControl(t,src,cos):esc(t.company||t.companyId||'')}</td>${canEdit?`<td style="text-align:center"><span class="ms" onclick="schedDelTask('${t.id}')" title="Delete activity" style="font-size:16px;color:#7A8290;cursor:pointer">delete</span></td>`:''}</tr>`;}).join('');
   return `<div style="flex:1;overflow:auto;padding:0 20px 18px">
-    <div style="font-size:11.5px;color:#7A8290;margin-bottom:14px;display:flex;align-items:center;gap:8px"><span class="ms" style="font-size:16px;color:#8B5CF6">upload_file</span>Import a look-ahead → auto-creates a pour per "pour" activity · same name → adjusts date · ${pourTasks.length} pour activities</div>
-    <div class="card" style="overflow:hidden;padding:0"><table class="dt"><thead><tr><th>Activity</th><th>Start</th><th>Finish</th><th style="text-align:center">Days</th><th>Crew</th></tr></thead><tbody>${rows||'<tr><td colspan="5" style="text-align:center;color:#5B636F;padding:20px">No activities.</td></tr>'}</tbody></table></div></div>`;
+    <div style="font-size:11.5px;color:#7A8290;margin-bottom:14px;display:flex;align-items:center;gap:8px"><span class="ms" style="font-size:16px;color:#8B5CF6">${src==='super'?'bolt':'upload_file'}</span>${src==='super'?'Live from SuperYap · edits sync both ways':'Imported · '+pourTasks.length+' pour activities'}${canEdit?' · click a field to edit':''}</div>
+    <div class="card" style="overflow:hidden;padding:0"><table class="dt"><thead><tr><th>Activity</th><th>Start</th><th>Finish</th><th style="text-align:center">Days</th><th>Crew</th>${canEdit?'<th></th>':''}</tr></thead><tbody>${rows||`<tr><td colspan="${canEdit?6:5}" style="text-align:center;color:#5B636F;padding:20px">No activities.</td></tr>`}</tbody></table></div></div>`;
 }
 function ganttHTML(p){
-  const tasks=Object.values(p.tasks||{}); const secs=Object.entries(p.sections||{}).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
+  const canEdit=canView('scheduleEdit'); const src=curSchedSrc(); const cos=schedCompanies(); const collapsed=STATE.schedCollapsed||{}; const LEFTW=360; const lcols=`1fr 44px 104px${canEdit?' 26px':''}`;
+  const tasks=Object.entries(p.tasks||{}).map(([tid,t])=>Object.assign({id:tid},t)); const secs=Object.entries(p.sections||{}).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
   const starts=tasks.map(t=>t.start).filter(Boolean).sort(); const anchor=starts[0]||p.startDate||new Date().toISOString().slice(0,10);
   const anchorD=new Date(anchor+'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0);
   const lastEnd=tasks.reduce((mx,t)=>{const s=t.start?new Date(t.start+'T00:00:00'):anchorD;const e=new Date(s);e.setDate(e.getDate()+(t.days||1)+2);return e>mx?e:mx;},anchorD);
@@ -969,27 +1002,33 @@ function ganttHTML(p){
   for(let i=0;i<N;i++){const d=new Date(anchorD);d.setDate(d.getDate()+i);const we=d.getDay()===0||d.getDay()===6;
     gdays+=`<div style="width:${cellW}px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid rgba(255,255,255,.04);${we?'background:rgba(255,255,255,.022);':''}"><span style="font-size:8px;color:#5B636F">${wkl[d.getDay()]}</span><span class="mono" style="font-size:10px;color:#9AA3B0">${d.getDate()}</span></div>`;
     const last=months[months.length-1]; if(!last||last.m!==d.getMonth()){months.push({m:d.getMonth(),label:d.toLocaleString(undefined,{month:'short'})+' '+d.getFullYear(),start:i,span:1});}else last.span++;}
-  const timelineW=N*cellW;
+  const timelineW=N*cellW; const tlStyle='flex:1 0 '+timelineW+'px;min-width:'+timelineW+'px';
   const monthBar=months.map(g=>`<div style="position:absolute;left:${g.start*cellW}px;width:${g.span*cellW}px;top:0;height:22px;display:flex;align-items:center;padding-left:8px;font-size:11px;font-weight:600;color:#C7CDD6;border-left:1px solid rgba(255,255,255,.08)">${g.label}</div>`).join('');
-  const todayI=Math.round((today-anchorD)/864e5); const todayLine=(todayI>=0&&todayI<N)?`<div style="position:absolute;left:${360+todayI*cellW+cellW/2}px;top:52px;bottom:0;width:2px;background:linear-gradient(180deg,#3B82F6,rgba(59,130,246,.1));z-index:4;box-shadow:0 0 10px rgba(59,130,246,.6)"></div>`:'';
+  const todayI=Math.round((today-anchorD)/864e5); const todayLine=(todayI>=0&&todayI<N)?`<div style="position:absolute;left:${LEFTW+todayI*cellW+cellW/2}px;top:52px;bottom:0;width:2px;background:linear-gradient(180deg,#3B82F6,rgba(59,130,246,.1));z-index:4;box-shadow:0 0 10px rgba(59,130,246,.6)"></div>`:'';
   const tasksBySec={}; tasks.forEach(t=>{(tasksBySec[t.sectionId]=tasksBySec[t.sectionId]||[]).push(t);});
   let secHTML='';
-  secs.forEach(([sid,sec])=>{ secHTML+=`<div style="display:flex"><div style="width:360px;flex-shrink:0;position:sticky;left:0;z-index:5;background:#111722;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:8px;padding:9px 14px"><span class="ms" style="font-size:16px;color:#7A8290">expand_more</span><span style="font-size:12.5px;font-weight:650">${esc(sec.name)}</span><span class="mono" style="font-size:9.5px;color:#5B636F">${(tasksBySec[sid]||[]).length}</span></div><div style="width:${timelineW}px;flex-shrink:0;background:#111722;border-bottom:1px solid rgba(255,255,255,.06)"></div></div>`;
-    (tasksBySec[sid]||[]).sort((a,b)=>(a.order||0)-(b.order||0)).forEach(t=>{ const start=t.start?dayIdx(t.start):0; const days=t.days||1; const cc=t.crewColor||crewColor(t.company); const letter=(t.company||'?').replace(/[^A-Za-z]/g,'').slice(0,1).toUpperCase()||'?';
+  secs.forEach(([sid,sec])=>{ const isC=!!collapsed[sid];
+    secHTML+=`<div data-secband="${sid}" style="display:flex"><div style="width:${LEFTW}px;flex-shrink:0;position:sticky;left:0;z-index:5;background:#111722;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:6px;padding:9px 12px"><span class="ms" onclick="schedToggleSec('${sid}')" style="font-size:18px;color:#9AA3B0;cursor:pointer">${isC?'chevron_right':'expand_more'}</span><span style="flex:1;font-size:12.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(sec.name)}</span><span class="mono" style="font-size:9.5px;color:#5B636F">${(tasksBySec[sid]||[]).length}</span>${canEdit?`<span class="ms" onclick="schedAddTask('${sid}')" title="Add activity" style="font-size:17px;color:#7A8290;cursor:pointer">add</span>`:''}</div><div style="${tlStyle};background:#111722;border-bottom:1px solid rgba(255,255,255,.06)"></div></div>`;
+    if(isC)return;
+    (tasksBySec[sid]||[]).sort((a,b)=>(a.order||0)-(b.order||0)).forEach(t=>{ const start=t.start?dayIdx(t.start):0; const days=t.days||1; const cc=t.crewColor||crewColor(t.company); const letter=(t.company||t.companyId||'?').replace(/[^A-Za-z]/g,'').slice(0,1).toUpperCase()||'?'; const hay=esc((t.name+' '+(t.company||t.companyId||'')).toLowerCase());
       let cells=''; for(let d=0;d<days;d++){const x=(start+d)*cellW+3;if(x<0)continue;cells+=`<div class="mono" style="position:absolute;left:${x}px;top:7px;width:${cellW-5}px;height:${rowH-14}px;background:${cc};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:rgba(11,14,19,.85)">${letter}</div>`;}
-      secHTML+=`<div style="display:flex"><div style="width:360px;flex-shrink:0;position:sticky;left:0;z-index:5;background:#0C1017;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.04);display:grid;grid-template-columns:1fr 54px 116px;align-items:center;height:${rowH}px">
-        <div style="display:flex;align-items:center;gap:8px;padding-left:14px;min-width:0"><span style="width:13px;height:13px;border-radius:50%;border:1.5px solid rgba(255,255,255,.18);flex-shrink:0"></span><span style="font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</span></div>
-        <div class="mono" style="font-size:11px;color:#9AA3B0">${days}</div>
-        <div style="display:flex;align-items:center;gap:7px"><span class="mono" style="width:18px;height:18px;border-radius:50%;background:${cc};display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;color:#0B0E13">${letter}</span><span style="font-size:11px;color:#9AA3B0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.company||'')}</span></div></div>
-        <div style="position:relative;width:${timelineW}px;flex-shrink:0;height:${rowH}px;border-bottom:1px solid rgba(255,255,255,.04);background-image:linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:${cellW}px 100%">${cells}</div></div>`;
+      const nameCell=canEdit?`<input value="${esc(t.name)}" onchange="schedSetField('${t.id}','name',this.value)" style="flex:1;min-width:0;background:transparent;border:0;outline:0;color:#E6E9EF;font-size:11.5px">`:`<span style="font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</span>`;
+      const daysCell=canEdit?`<input type="number" min="1" value="${days}" onchange="schedSetField('${t.id}','days',this.value)" style="width:34px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:5px;color:#E6E9EF;font-size:10.5px;text-align:center;padding:1px">`:`<span class="mono" style="font-size:11px;color:#9AA3B0">${days}</span>`;
+      const crewCell=canEdit?schedCrewControl(t,src,cos):`<div style="display:flex;align-items:center;gap:6px;min-width:0"><span class="mono" style="width:18px;height:18px;border-radius:50%;background:${cc};display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;color:#0B0E13;flex-shrink:0">${letter}</span><span style="font-size:11px;color:#9AA3B0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.company||'')}</span></div>`;
+      secHTML+=`<div data-search="${hay}" data-sec="${sid}" style="display:flex"><div style="width:${LEFTW}px;flex-shrink:0;position:sticky;left:0;z-index:5;background:#0C1017;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.04);display:grid;grid-template-columns:${lcols};align-items:center;gap:6px;height:${rowH}px">
+        <div style="display:flex;align-items:center;gap:8px;padding-left:14px;min-width:0"><span style="width:11px;height:11px;border-radius:50%;background:${cc};opacity:.85;flex-shrink:0"></span>${nameCell}</div>
+        <div style="text-align:center">${daysCell}</div>
+        <div style="min-width:0">${crewCell}</div>
+        ${canEdit?`<span class="ms" onclick="schedDelTask('${t.id}')" title="Delete" style="font-size:15px;color:#6B7280;cursor:pointer">delete</span>`:''}</div>
+        <div style="position:relative;${tlStyle};height:${rowH}px;border-bottom:1px solid rgba(255,255,255,.04);background-image:linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:${cellW}px 100%">${cells}</div></div>`;
     });
   });
   return `<div style="flex:1;display:flex;flex-direction:column;min-height:0;padding:0 20px 18px">
     <div style="flex:1;overflow:auto;border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(10,13,18,.6);min-height:0">
-      <div style="min-width:${360+timelineW}px;position:relative">
+      <div style="min-width:max(100%, ${LEFTW+timelineW}px);position:relative">
         <div style="display:flex;position:sticky;top:0;z-index:6;background:#0C1017">
-          <div style="width:360px;flex-shrink:0;position:sticky;left:0;z-index:7;background:#0C1017;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08);display:grid;grid-template-columns:1fr 54px 116px;align-items:end"><div class="mono" style="font-size:9.5px;color:#5B636F;padding:0 14px 8px">TASK</div><div class="mono" style="font-size:9.5px;color:#5B636F;padding:0 0 8px">DAYS</div><div class="mono" style="font-size:9.5px;color:#5B636F;padding:0 0 8px">CREW</div></div>
-          <div style="position:relative;width:${timelineW}px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.08)"><div style="position:relative;height:22px">${monthBar}</div><div style="display:flex;height:30px">${gdays}</div></div></div>
+          <div style="width:${LEFTW}px;flex-shrink:0;position:sticky;left:0;z-index:7;background:#0C1017;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08);display:grid;grid-template-columns:${lcols};gap:6px;align-items:end"><div class="mono" style="font-size:9.5px;color:#5B636F;padding:0 14px 8px">TASK</div><div class="mono" style="font-size:9.5px;color:#5B636F;text-align:center;padding:0 0 8px">DAYS</div><div class="mono" style="font-size:9.5px;color:#5B636F;padding:0 0 8px">CREW</div>${canEdit?'<div></div>':''}</div>
+          <div style="position:relative;${tlStyle};border-bottom:1px solid rgba(255,255,255,.08)"><div style="position:relative;height:22px">${monthBar}</div><div style="display:flex;height:30px">${gdays}</div></div></div>
         ${todayLine}${secHTML}
       </div></div></div>`;
 }
@@ -1031,6 +1070,53 @@ window.exportSchedule=exportSchedule;
    TOOLS
    ============================================================================ */
 const TOOL_STCOL={'On Site':'#22C55E','Transferred':'#F59E0B','Returned':'#566072','Lost':'#EF4444','Damaged':'#EC4899'};
+/* ---------- Inventory tab: Tools + Embeds ---------- */
+function inventoryHTML(){ const kind=STATE.invKind||'tools';
+  const sw=(k,l,ic)=>`<button class="segbtn ${kind===k?'on':''}" onclick="setInvKind('${k}')" style="display:flex;align-items:center;gap:6px;padding:7px 14px"><span class="ms" style="font-size:16px">${ic}</span>${l}</button>`;
+  const head=`<div style="padding:18px 22px 0"><div class="seg" style="display:inline-flex">${sw('tools','Tools','construction')}${sw('embed','Embeds','push_pin')}</div></div>`;
+  return head + (kind==='embed'?embedInvHTML():toolsHTML());
+}
+function setInvKind(k){ STATE.invKind=k; renderBody(); }
+window.setInvKind=setInvKind;
+const EMB_COL={installed:'#22C55E',todo:'#EF4444',next:'#F59E0B',knife:'#3B82F6',stub:'#FF9650'};
+function embStatus(p){ return p.installed?'installed':(p.nextPour?'next':'todo'); }
+function embedInvHTML(){ const pins=Object.values(DATA.pins||{}); const types=DATA.embedTypes||{};
+  if(!pins.length) return `<div style="padding:22px"><div class="card" style="padding:44px;text-align:center;color:#7A8290"><span class="ms" style="font-size:30px;opacity:.5;display:block;margin-bottom:8px">push_pin</span>No embed pins loaded yet.<div style="margin-top:8px"><a class="ghostbtn" href="${APP_URLS.embed}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>Open EmbedYap</a></div></div></div>`;
+  const inst=pins.filter(p=>p.installed).length, todo=pins.length-inst, next=pins.filter(p=>p.nextPour&&!p.installed).length;
+  const knife=pins.filter(p=>p.knifePlate).length, stub=pins.filter(p=>p.stubColumn).length, marks=new Set(pins.map(p=>p.embedId).filter(Boolean)).size;
+  const pct=pins.length?Math.round(inst/pins.length*100):0;
+  const grp=STATE.embedGroup||'sequence'; const q=((STATE.searchByTab&&STATE.searchByTab.tools)||'').toLowerCase();
+  const stat=(v,l,c,ic)=>`<div class="card" style="padding:14px 18px;min-width:120px"><div style="display:flex;align-items:center;gap:7px;color:#8A92A0;font-size:11px"><span class="ms" style="font-size:15px;color:${c}">${ic}</span>${l}</div><div class="mono" style="font-size:25px;font-weight:750;margin-top:6px;color:${c}">${v}</div></div>`;
+  const head=`<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:7px"><span style="font-size:11px;color:#7A8290">Group by</span><div class="seg"><button class="segbtn ${grp==='sequence'?'on':''}" onclick="setEmbedGroup('sequence')">Sequence</button><button class="segbtn ${grp==='area'?'on':''}" onclick="setEmbedGroup('area')">Area</button><button class="segbtn ${grp==='type'?'on':''}" onclick="setEmbedGroup('type')">Type</button></div></div>
+    <div style="flex:1"></div>
+    <a class="ghostbtn" href="${APP_URLS.embed}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>EmbedYap</a></div>`;
+  const stats=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+    ${stat(pins.length,'Embeds','#3B82F6','push_pin')}${stat(marks,'Types','#A855F7','category')}${stat(inst,'Installed','#22C55E','check_circle')}${stat(todo,'To install','#EF4444','radio_button_unchecked')}${stat(knife,'Knife plates','#3B82F6','square')}${stat(stub,'Stub columns','#FF9650','view_column')}${stat(pct+'%','Installed','#22C55E','donut_large')}</div>`;
+  // group → pins → aggregate by mark
+  const keyOf = grp==='area'?(p=>p.area||'—'):grp==='type'?(p=>p.embedId||'—'):(p=>p.sequence||'—');
+  const groups={}; pins.forEach(p=>{const k=keyOf(p);(groups[k]=groups[k]||[]).push(p);});
+  const SEQORDER=['1','2','3','4','South Hall','CUP']; const gkeys=Object.keys(groups).sort((a,b)=>{ if(grp==='sequence'){const ia=SEQORDER.indexOf(a),ib=SEQORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);} return a.localeCompare(b,undefined,{numeric:true}); });
+  const cards=gkeys.map(k=>{ const gp=groups[k]; const gi=gp.filter(p=>p.installed).length; const gpct=gp.length?Math.round(gi/gp.length*100):0;
+    const byMark={}; gp.forEach(p=>{const m=p.embedId||'—';const o=byMark[m]=byMark[m]||{n:0,inst:0,knife:0,stub:0};o.n++;if(p.installed)o.inst++;if(p.knifePlate)o.knife++;if(p.stubColumn)o.stub++;});
+    const rows=Object.keys(byMark).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(m=>{ const o=byMark[m]; const dot=o.inst===o.n?'#22C55E':o.inst===0?'#EF4444':'#F59E0B'; const designQ=types[m]&&types[m].qty?+types[m].qty:0;
+      const hay=(m+' '+(types[m]&&types[m].desc||'')).toLowerCase(); const hide=q&&hay.indexOf(q)<0;
+      return `<div data-search="${esc(hay)}" data-sec="emb_${esc(k)}" style="display:flex;align-items:center;gap:9px;padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.04)${hide?';display:none':''}">
+        <span style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0"></span>
+        <div style="min-width:0;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis"><span class="mono" style="color:#9B8CF6;font-weight:650;font-size:11.5px">${esc(m)}</span>${types[m]&&types[m].desc?`<span style="font-size:11px;color:#9AA3B0"> ${esc(types[m].desc)}</span>`:''}${o.knife?` <span class="pill" style="color:#3B82F6;background:rgba(59,130,246,.15)">KP</span>`:''}${o.stub?` <span class="pill" style="color:#FF9650;background:rgba(255,150,80,.15)">SC</span>`:''}</div>
+        <span class="mono" style="font-size:11px;color:#9AA3B0;flex-shrink:0">${o.inst}/${o.n}${designQ?`<span style="color:#5B636F"> · ${designQ} design</span>`:''}</span></div>`;
+    }).join('');
+    return `<div class="card" data-secband="emb_${esc(k)}" style="overflow:hidden;display:flex;flex-direction:column">
+      <div style="padding:12px 15px;border-bottom:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.025)">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-weight:680;font-size:13.5px">${grp==='sequence'?'Seq ':''}${esc(k)}</span><span class="pill" style="margin-left:auto;color:#9BB7FF;background:rgba(59,130,246,.18)">${gp.length}</span></div>
+        <div style="font-size:11px;color:#8A92A0;margin-top:4px"><span class="mono">${gi}/${gp.length} installed</span> · <span style="color:#22C55E">${gpct}%</span></div>
+        <div style="height:5px;border-radius:3px;background:rgba(255,255,255,.06);margin-top:7px;overflow:hidden"><div style="height:100%;width:${gpct}%;background:#22C55E"></div></div></div>
+      <div style="overflow-y:auto;max-height:300px">${rows}</div></div>`;
+  }).join('');
+  return `<div style="padding:22px;animation:oyFade .35s ease">${head}${stats}<div id="embedGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;align-items:start">${cards}</div></div>`;
+}
+function setEmbedGroup(g){ STATE.embedGroup=g; renderBody(); }
+window.setEmbedGroup=setEmbedGroup;
 function toolsHTML(){ const all=Object.values(DATA.tools||{}); const view=STATE.toolView||'grouped';
   const onSite=all.filter(a=>a.status==='On Site'); const attn=all.filter(a=>['Lost','Damaged'].includes(a.status)||(a.verified==='Missing'));
   const monthly=onSite.reduce((s,a)=>s+(+a.unit_cost||0)*(+a.qty||1),0);
@@ -1125,7 +1211,7 @@ function toolsSummary(all,onSite,attn,monthly){
 }
 function toolRowsHTML(){ const all=Object.values(DATA.tools||{}); const q=(STATE.toolQ||'').toLowerCase();
   const list=all.filter(a=>!q||[a.item_id,a.description,a.category,a.assigned_to].some(x=>(x||'').toLowerCase().includes(q))).sort((a,b)=>(a.description||'').localeCompare(b.description||''));
-  return list.map(a=>{const c=TOOL_STCOL[a.status]||'#566072';return `<tr><td class="mono" style="color:#9AA3B0">${esc(a.item_id||'')}</td><td style="font-weight:600">${esc(a.description||'')}</td><td style="color:#9AA3B0">${esc(a.category||'—')}</td><td class="mono" style="text-align:center">${a.qty||1}</td><td><span class="pill" style="color:${c};background:${hexA(c,.14)}">${esc(a.status||'—')}</span></td><td style="color:#9AA3B0">${esc(a.assigned_to||'—')}</td><td class="mono" style="text-align:right">${a.unit_cost?'$'+a.unit_cost:''}</td></tr>`;}).join('')||'<tr><td colspan="7" style="text-align:center;color:#5B636F;padding:20px">'+(all.length?'No tools match.':'Loading inventory…')+'</td></tr>'; }
+  return list.map(a=>{const c=TOOL_STCOL[a.status]||'#566072';return `<tr data-search="${esc(((a.item_id||'')+' '+(a.description||'')+' '+(a.category||'')+' '+(a.assigned_to||'')).toLowerCase())}"><td class="mono" style="color:#9AA3B0">${esc(a.item_id||'')}</td><td style="font-weight:600">${esc(a.description||'')}</td><td style="color:#9AA3B0">${esc(a.category||'—')}</td><td class="mono" style="text-align:center">${a.qty||1}</td><td><span class="pill" style="color:${c};background:${hexA(c,.14)}">${esc(a.status||'—')}</span></td><td style="color:#9AA3B0">${esc(a.assigned_to||'—')}</td><td class="mono" style="text-align:right">${a.unit_cost?'$'+a.unit_cost:''}</td></tr>`;}).join('')||'<tr><td colspan="7" style="text-align:center;color:#5B636F;padding:20px">'+(all.length?'No tools match.':'Loading inventory…')+'</td></tr>'; }
 function toolsTable(){ return `<div class="card" style="overflow:hidden;padding:0"><table class="dt"><thead><tr><th>Item ID</th><th>Tool</th><th>Category</th><th style="text-align:center">Qty</th><th>Status</th><th>Assigned</th><th style="text-align:right">Monthly</th></tr></thead><tbody id="toolBody">${toolRowsHTML()}</tbody></table></div>`; }
 function toolSearch(q){ STATE.toolQ=q; const b=document.getElementById('toolBody'); if(b)b.innerHTML=toolRowsHTML(); }
 window.toolSearch=toolSearch;

@@ -1032,19 +1032,79 @@ window.exportSchedule=exportSchedule;
    TOOLS
    ============================================================================ */
 const TOOL_STCOL={'On Site':'#22C55E','Transferred':'#F59E0B','Returned':'#566072','Lost':'#EF4444','Damaged':'#EC4899'};
-function toolsHTML(){ const all=Object.values(DATA.tools||{}); const view=STATE.toolView||'summary';
+function toolsHTML(){ const all=Object.values(DATA.tools||{}); const view=STATE.toolView||'grouped';
   const onSite=all.filter(a=>a.status==='On Site'); const attn=all.filter(a=>['Lost','Damaged'].includes(a.status)||(a.verified==='Missing'));
   const monthly=onSite.reduce((s,a)=>s+(+a.unit_cost||0)*(+a.qty||1),0);
+  const grp=STATE.toolGroup||'category';
+  const seg=`<div class="seg"><button class="segbtn ${view==='summary'?'on':''}" onclick="setToolView('summary')"><span class="ms" style="font-size:15px;vertical-align:-3px">insights</span> Summary</button><button class="segbtn ${view==='grouped'?'on':''}" onclick="setToolView('grouped')"><span class="ms" style="font-size:15px;vertical-align:-3px">grid_view</span> Grouped</button><button class="segbtn ${view==='inventory'?'on':''}" onclick="setToolView('inventory')"><span class="ms" style="font-size:15px;vertical-align:-3px">table_rows</span> Inventory</button></div>`;
+  const groupToggle=view==='grouped'?`<div style="display:flex;align-items:center;gap:7px"><span style="font-size:11px;color:#7A8290">Group by</span><div class="seg"><button class="segbtn ${grp==='category'?'on':''}" onclick="setToolGroup('category')">Category</button><button class="segbtn ${grp==='brand'?'on':''}" onclick="setToolGroup('brand')">Brand</button></div></div>`:'';
+  const search=view==='inventory'?`<input class="fld" placeholder="Search tools…" value="${esc(STATE.toolQ||'')}" oninput="toolSearch(this.value)" style="width:190px">`
+    :view==='grouped'?`<input class="fld" placeholder="Search tools…" value="${esc(STATE.toolQ||'')}" oninput="toolGroupSearch(this.value)" style="width:190px">`:'';
   const head=`<div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap">
-    <div class="seg"><button class="segbtn ${view==='summary'?'on':''}" onclick="setToolView('summary')"><span class="ms" style="font-size:15px;vertical-align:-3px">insights</span> Summary</button><button class="segbtn ${view==='inventory'?'on':''}" onclick="setToolView('inventory')"><span class="ms" style="font-size:15px;vertical-align:-3px">table_rows</span> Inventory</button></div>
+    ${seg}${groupToggle}
     <div style="flex:1"></div>
-    ${view==='inventory'?`<input class="fld" placeholder="Search tools…" value="${esc(STATE.toolQ||'')}" oninput="toolSearch(this.value)" style="width:190px">`:''}
+    ${search}
     <button class="ghostbtn" onclick="exportTools()"><span class="ms" style="font-size:15px">download</span>Export</button>
     <a class="ghostbtn" href="${APP_URLS.tools}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>Tool app</a></div>`;
-  return `<div style="padding:22px;animation:oyFade .35s ease">${head}${view==='summary'?toolsSummary(all,onSite,attn,monthly):toolsTable()}</div>`;
+  const body=view==='summary'?toolsSummary(all,onSite,attn,monthly):view==='grouped'?toolGrouped(all):toolsTable();
+  return `<div style="padding:22px;animation:oyFade .35s ease">${head}${body}</div>`;
 }
 function setToolView(v){ STATE.toolView=v; renderBody(); }
 window.setToolView=setToolView;
+function setToolGroup(g){ STATE.toolGroup=g; renderBody(); }
+window.setToolGroup=setToolGroup;
+/* ---------- Grouped card grid (mirrors Tool app: by category / by brand) ---------- */
+const TOOL_BRANDS=['DEWALT','MILWAUKEE','MAKITA','BOSCH','HILTI','METABO','RIDGID','RYOBI','PASLODE','HITACHI','HYTERA','LEICA','OZTEC','HONDA','STIHL','FESTOOL','KOBALT','KNAACK','BIG FOOT','SKILSAW','SKIL','SENCO','BOSTITCH'];
+const TOOL_BRAND_ORDER=['DeWalt','Milwaukee','Makita','Bosch','Hilti','Metabo','Ridgid','Ryobi','Paslode','Hitachi','Hytera','Leica','Oztec','Honda','Stihl','Festool','Kobalt','Knaack','Big Foot','Skilsaw','Skil','Senco','Bostitch','Unbranded'];
+const TOOL_CAT_ORDER=['Batteries','Circular Saws','Sawzalls','Drills & Impacts','Nail Guns','Hand Tools','Vacuums','Angle Grinders','Chargers','Layout Equipment','Jobsite & Storage','Concrete, Rigging & Misc','Power Equipment','Bulk'];
+const _toolBrandRank=(()=>{const m={};TOOL_BRAND_ORDER.forEach((b,i)=>m[b]=i);return m;})();
+function toolBrand(desc){ const up=(desc||'').toUpperCase(); for(const b of TOOL_BRANDS){ if(new RegExp('\\b'+b+'\\b').test(up)) return b==='DEWALT'?'DeWalt':b==='SKILSAW'?'Skilsaw':b.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()); } return 'Unbranded'; }
+function _catRank(x){ const i=TOOL_CAT_ORDER.indexOf(x); return i<0?99:i; }
+function _toolGRow(a){ const c=TOOL_STCOL[a.status]||'#566072'; const cost=(+a.unit_cost||0)*(+a.qty||1);
+  const hay=((a.item_id||'')+' '+(a.description||'')+' '+(a.assigned_to||'')).toLowerCase();
+  const hide=STATE.toolQ&&hay.indexOf((STATE.toolQ||'').toLowerCase())<0;
+  const ver=a.verified==='Yes'?`<span class="pill" style="color:#22C55E;background:rgba(34,197,94,.16)" title="Verified on site">check</span>`:a.verified==='Missing'?`<span class="pill" style="color:#F59E0B;background:rgba(245,158,11,.16)">missing</span>`:'';
+  return `<div data-search="${esc(hay)}" style="display:flex;align-items:center;gap:9px;padding:8px 14px;border-bottom:1px solid rgba(255,255,255,.04)${hide?';display:none':''}">
+    <div style="min-width:0;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
+      <span class="mono" style="color:#9B8CF6;font-weight:650;font-size:11px">${esc(a.item_id||'—')}</span>
+      <span style="font-size:12px;color:#C7CDD6"> ${esc((a.description||'').slice(0,30))}</span>${a.assigned_to?`<span style="font-size:10.5px;color:#7A8290"> · ${esc(a.assigned_to)}</span>`:''}
+    </div>${ver}
+    <span class="pill" style="color:${c};background:${hexA(c,.14)};flex-shrink:0">${esc(a.status||'—')}</span>
+    <span class="mono" style="font-size:11px;color:#9AA3B0;white-space:nowrap;flex-shrink:0">${cost?'$'+Math.round(cost).toLocaleString():'—'}</span>
+  </div>`;
+}
+function _toolGHead(name,tools){
+  const onN=tools.filter(t=>t.status==='On Site').length;
+  const mo=tools.filter(t=>t.status==='On Site').reduce((s,t)=>s+(+t.unit_cost||0)*(+t.qty||1),0);
+  return `<div style="padding:12px 15px;border-bottom:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.025)">
+    <div style="display:flex;align-items:center;gap:8px"><span style="font-weight:680;font-size:13.5px">${esc(name)}</span><span class="pill" style="margin-left:auto;color:#C9BBFF;background:rgba(139,92,246,.18)">${tools.length}</span></div>
+    <div style="font-size:11px;color:#8A92A0;margin-top:4px"><span class="mono">${mo?'$'+Math.round(mo).toLocaleString()+'/mo':'—'}</span> · <span style="color:#22C55E">${onN} on site</span></div></div>`;
+}
+function toolGrouped(all){
+  if(!all.length) return `<div class="card" style="padding:40px;text-align:center;color:#5B636F">Loading inventory…</div>`;
+  const grp=STATE.toolGroup||'category'; let cards;
+  if(grp==='brand'){
+    const m={}; all.forEach(a=>{const b=toolBrand(a.description);(m[b]=m[b]||[]).push(a);});
+    const brands=Object.keys(m).sort((a,b)=>((_toolBrandRank[a]??999)-(_toolBrandRank[b]??999))||a.localeCompare(b));
+    cards=brands.map(b=>{ const tools=m[b];
+      const byCat={}; tools.forEach(t=>{const k=t.category||'Uncategorized';(byCat[k]=byCat[k]||[]).push(t);});
+      const cats=Object.keys(byCat).sort((x,y)=>_catRank(x)-_catRank(y)||x.localeCompare(y));
+      const body=cats.map(cn=>{ const ts=byCat[cn].slice().sort((a,b)=>String(a.description||'').localeCompare(String(b.description||'')));
+        return `<div><div style="position:sticky;top:0;z-index:1;background:#12151c;padding:5px 14px;font-size:10px;letter-spacing:.4px;text-transform:uppercase;color:#7A8290;display:flex;justify-content:space-between"><span>${esc(cn)}</span><span class="mono">${ts.length}</span></div>${ts.map(_toolGRow).join('')}</div>`;
+      }).join('');
+      return `<div class="card" style="overflow:hidden;display:flex;flex-direction:column">${_toolGHead(b,tools)}<div style="overflow-y:auto;max-height:320px">${body}</div></div>`;
+    }).join('');
+  } else {
+    const m={}; all.forEach(a=>{const k=a.category||'Uncategorized';(m[k]=m[k]||[]).push(a);});
+    const cats=Object.keys(m).sort((x,y)=>_catRank(x)-_catRank(y)||x.localeCompare(y));
+    cards=cats.map(k=>{ const ts=m[k].slice().sort((a,b)=>String(a.description||'').localeCompare(String(b.description||'')));
+      return `<div class="card" style="overflow:hidden;display:flex;flex-direction:column">${_toolGHead(k,m[k])}<div style="overflow-y:auto;max-height:300px">${ts.map(_toolGRow).join('')}</div></div>`;
+    }).join('');
+  }
+  return `<div id="toolGroupWrap" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-items:start">${cards}</div>`;
+}
+function toolGroupSearch(q){ STATE.toolQ=q; const ql=(q||'').toLowerCase(); const wrap=document.getElementById('toolGroupWrap'); if(!wrap)return; wrap.querySelectorAll('[data-search]').forEach(r=>{ r.style.display=(!ql||r.dataset.search.indexOf(ql)>=0)?'':'none'; }); }
+window.toolGroupSearch=toolGroupSearch;
 function toolsSummary(all,onSite,attn,monthly){
   const stat=(v,l,c,ic)=>`<div class="card" style="padding:14px 18px;min-width:128px"><div style="display:flex;align-items:center;gap:7px;color:#8A92A0;font-size:11px"><span class="ms" style="font-size:15px;color:${c}">${ic}</span>${l}</div><div class="mono" style="font-size:25px;font-weight:750;margin-top:6px;color:${c}">${v}</div></div>`;
   const util=all.length?Math.round(onSite.length/all.length*100):0;

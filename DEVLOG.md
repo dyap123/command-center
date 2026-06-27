@@ -10,6 +10,15 @@
 - Login upgrade from the working tree preserved (6-digit PIN `050103`, no-flash dots, keyboard, shake).
 
 
+## 2026-06-27 — Map UX iterations (from live feedback)
+Two rounds of map polish after the design went live:
+- **Navigation**: scroll wheel now **pans** (two-finger), pinch / ⌘-scroll **zooms**; then added Bluebeam-style tool modes — **Pan (V)** = scroll pans, **Zoom (Z)** = scroll zooms, **F** = fit — with toolbar buttons + keyboard shortcuts and an active-tool highlight.
+- **Embed pins** now **scale with zoom** (small at the fit/launch view, grow as you zoom in) so ~376 pins aren't a wall of circles; knife/RFI markers only draw once a pin is large enough. Layers panel (bottom-left) toggles each layer with live counts.
+- **Right info panel** (Project Takeoff / Pours / RFI tray) **show/hide** toggle in the toolbar; canvas reflows to full width when hidden.
+- **Pour names hover-only**: dropped the always-on canvas labels; pour areas stay highlighted and reveal a themed glass tooltip (name · status · seq · CY) on hover.
+- Real-time CUP footing sync confirmed (Firebase `.on` listeners on `cup-foundation/footingEdits`/`footingPours`/`pours`, `embed-tracker/pins`/`grid` — push-based, sub-second, no polling).
+
+
 ## 2026-06-27 — Claude Design front end integrated + MiniMax copilot
 Rebuilt the UI to the Claude Design handoff (`~/Documents/design_handoff_openyap_command_center/`), keeping all Firebase logic + the canvas map engine.
 - **Design ("Aurora/Foundry") shell:** dark `#0B0E13`, dot-grid, diamond-node brand mark, left rail (224→298px with copilot), topbar with role switcher, login = role-select cards → PIN (preview) or Google/Email (auth).

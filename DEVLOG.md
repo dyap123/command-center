@@ -1,5 +1,15 @@
 # DEVLOG — OpenYap Command Center
 
+## 2026-06-27 — Claude Design front end integrated + MiniMax copilot
+Rebuilt the UI to the Claude Design handoff (`~/Documents/design_handoff_openyap_command_center/`), keeping all Firebase logic + the canvas map engine.
+- **Design ("Aurora/Foundry") shell:** dark `#0B0E13`, dot-grid, diamond-node brand mark, left rail (224→298px with copilot), topbar with role switcher, login = role-select cards → PIN (preview) or Google/Email (auth).
+- **Screens:** Dashboard (KPIs/upcoming/live-feed, derived from real data), The Map (toolbars + Status/Sequence color + sequence filter + right dock PROJECT TAKEOFF/POURS/RFI-TRAY + layer panel + footing hover card + embed slide-in panel + RFI/markup cards + pour hover-highlight/isolate), Schedule (List + SuperYap-style Gantt with today line, real `command-center/schedule`), Tools, Attendance, RFIs, Inspections, Admin, Submittals (stub).
+- **Roles:** design model (admin/super/pm/pe) drives nav locks + edit affordances; real Firebase role still gates writes. Admin/preview can switch the *view* role.
+- **Copilot (MiniMax):** in-rail chat; key from `config/minimax_key` (shared); endpoint `api.minimax.io/anthropic/v1/messages`, model `MiniMax-M2.7`; grounded on live context (pours, embeds, RFIs, inspections, schedule, tools, crew).
+- **Verified** via a pure-node DOM/Firebase stub harness (no Chrome): boot→login→PIN→app, all 8 screens render clean, map builds 338 footing squares with 0 out-of-range projections.
+- Fixes: map body uses flex (not absolute) so it stays in its slot; RFI flag drawn as a canvas shape (icon-font ligatures don't render on canvas).
+
+
 ## 2026-06-26 — Initial build (function-first)
 Consolidation hub for the OpenYap suite. Single `index.html`, vanilla JS, Firebase compat,
 no build. Function-first: a functional Aurora-lite skin now; the Claude Design front end

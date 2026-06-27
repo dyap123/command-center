@@ -229,14 +229,31 @@ app. Both export to Excel.
 
 ---
 
-## 8. UI shell & the design seam
+## 8. UI shell & the design
 
-The current look is a **functional "Aurora-lite" skin** (aurora background, glass panels,
-Space Grotesk / Inter / Material Symbols) — intentionally separable from logic. Every module
-is a `render*(main)` function that writes HTML and wires events; the map is the only canvas.
-**Integration seam:** the Claude Design front end replaces the `<style>` block + the markup
-inside the `render*` functions; the data/logic functions (`startSync`, `DATA`, `M`,
-`footingToNorm`, `cycleInspection`, `dropRfi`, `importSchedule`, …) stay unchanged.
+The UI implements the **Claude Design handoff** ("Aurora/Foundry" — dark `#0B0E13`, dot-grid,
+glassmorphic panels, diamond-node brand mark, Inter / JetBrains Mono / Material Symbols
+Rounded). It is **state-driven**: a top-level `render()` paints either the **login** (role
+cards → PIN in preview, or Google/Email when Auth is configured) or the **app shell**
+(`renderRail` + `renderTopbar` + `renderBody`). Each screen is a `*HTML()` string builder;
+the **Map** is the one `<canvas>` (built once per entry; selection/hover/layers update via
+targeted DOM + `repaint()`).
+
+- **Roles:** the design model (`admin/super/pm/pe`) drives nav locks (`LOCKS`) and edit
+  affordances (`canView`); the **real** Firebase role still gates writes (`can`). Admin/preview
+  can switch the *view* role from the topbar.
+- **Map chrome:** toolbar (Status/Sequence color, sequence filter, deep links), right dock
+  (PROJECT TAKEOFF / POURS / RFI tray), floating layer panel + legend, footing hover card,
+  embed slide-in detail panel, RFI/markup/pour cards, calibration panel.
+
+## 8a. OpenYap Copilot (MiniMax)
+
+In-rail AI assistant (`renderCopilot`/`sendChat`). Key read from RTDB **`config/minimax_key`**
+(shared with the other OpenYap apps; `localStorage cup_alfred_key` fallback). Calls the
+Anthropic-compatible endpoint **`https://api.minimax.io/anthropic/v1/messages`**, model
+**`MiniMax-M2.7`**, with a system prompt + a live **`buildContext()`** digest (pours, embeds,
+open RFIs, inspections, schedule, tools, crew) so answers reflect current site state. If no
+key is found, it says so (an Admin sets it once for all apps).
 
 ---
 

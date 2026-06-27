@@ -1,5 +1,15 @@
 # DEVLOG — OpenYap Command Center
 
+## 2026-06-27 — Takeoff parity, live SuperYap, Tools PM dashboard, edit-lock
+- **Takeoff now matches CUP**: TOTAL CY = Σ footing `cyv` (CUP's `getTakeoff`), not sparse pour-zone CY; FOOTINGS = live footing count.
+- **Schedule: pull live from SuperYap OR import Excel** — source toggle (SuperYap ● / Imported). Ported SuperYap's working-day chain engine (`laCompute`) so chained dates resolve; crew bars use each company's real color; reads `look-ahead-schedule/{projects,meta,companies,holidays}` live.
+- **Tools: PM Summary dashboard** + Inventory toggle. Summary = stat cards (on-site, total, monthly rental $, need-attention, utilization) + by-status bar + by-category cost table + needs-attention list. Inventory = searchable table.
+- **Ghost-pour filter**: empty/stray zones (no name/geometry/CY/area/seq) no longer show on the map or pour list.
+- **Edit lock (shortcut L)**: app is view-only by default; unlock with PIN `050103` to enable edits (toast + topbar lock pill). `can()`/`canView()` gate all edit affordances on the lock.
+- **Map**: clicking empty space now also clears an isolated pour/sequence (and `Esc` clears selection).
+- Login upgrade from the working tree preserved (6-digit PIN `050103`, no-flash dots, keyboard, shake).
+
+
 ## 2026-06-27 — Claude Design front end integrated + MiniMax copilot
 Rebuilt the UI to the Claude Design handoff (`~/Documents/design_handoff_openyap_command_center/`), keeping all Firebase logic + the canvas map engine.
 - **Design ("Aurora/Foundry") shell:** dark `#0B0E13`, dot-grid, diamond-node brand mark, left rail (224→298px with copilot), topbar with role switcher, login = role-select cards → PIN (preview) or Google/Email (auth).

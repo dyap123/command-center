@@ -141,8 +141,16 @@ const CAP={
   rfiEdit:['admin','pm','pe'], zoneEdit:['admin','pe'], mapCalib:['admin','pe'], markupEdit:['admin','pm','pe'],
   scheduleEdit:['admin','super'], inspect:['admin','pm','pe'], adminUsers:['admin'],
 };
-function can(cap){ return (CAP[cap]||[]).includes(realRoleKey()); }
-function canView(cap){ return (CAP[cap]||[]).includes(activeRole()); }
+// Global edit lock — default LOCKED (view-only) until unlocked with the PIN (shortcut L).
+// When locked, all edit affordances hide and writes are blocked, so shared data is safe.
+let EDIT_LOCKED=true;
+function can(cap){ if(EDIT_LOCKED&&cap!=='adminUsers')return false; return (CAP[cap]||[]).includes(realRoleKey()); }
+function canView(cap){ if(EDIT_LOCKED&&cap!=='adminUsers')return false; return (CAP[cap]||[]).includes(activeRole()); }
+function toggleLock(){ if(EDIT_LOCKED){ const pin=prompt('Enter PIN to UNLOCK editing (your edits then sync across the OpenYap apps):'); if(pin==null)return;
+    if(pin==='050103'){ EDIT_LOCKED=false; toast('Editing unlocked','ok'); } else { toast('Wrong PIN — still locked','err'); return; } }
+  else { EDIT_LOCKED=true; toast('Editing locked','ok'); }
+  renderTopbar(); if(STATE.screen==='app'){ renderRail(); renderBody(); } }
+window.toggleLock=toggleLock;
 function navLocked(key){ return (LOCKS[activeRole()]||[]).includes(key); }
 
 /* ---- GLOBAL STATE --------------------------------------------------------- */
@@ -223,9 +231,11 @@ function startCCSync(){ if(_cc)return; _cc=true;
 }
 function loadAttDay(date){ DATA.att.date=date; fetch(DBURL+'/foreman-attendance/attendance/'+date+'.json').then(r=>r.json()).then(d=>{ DATA.att.records=d||{}; if(STATE.activeTab==='attendance')renderBody(); }).catch(()=>{}); }
 window.loadAttDay=loadAttDay;
+// a real pour has content; bare/empty stray zones ("ghost pours") are filtered out
+function realPour(z){ return z && ( z.name || z.cy || z.area || z.sequence!=null || z.pour!=null || z.mix || (Array.isArray(z.points)&&z.points.length>=3) || typeof z.x==='number' ); }
 function refreshPours(){ const out={};
-  Object.entries(DATA.cupPours||{}).forEach(([id,z])=>out[id]=normPour(id,z));
-  Object.entries(DATA.etZones||{}).forEach(([id,z])=>{ if(/WCG|Pours/.test(z.layer||'')) out[id]=Object.assign(out[id]||{},normPour(id,z)); });
+  Object.entries(DATA.cupPours||{}).forEach(([id,z])=>{ if(realPour(z)) out[id]=normPour(id,z); });
+  Object.entries(DATA.etZones||{}).forEach(([id,z])=>{ if(/WCG|Pours/.test(z.layer||'')&&realPour(z)) out[id]=Object.assign(out[id]||{},normPour(id,z)); });
   _poursCache=out; if(onMap()){renderDock();renderLayerPanel();repaint();} softUpdate(); }
 function normPour(id,z){ let pts=null;
   if(Array.isArray(z.points)&&z.points.length>=3)pts=z.points; else if(typeof z.x==='number'&&typeof z.w==='number')pts=[[z.x,z.y],[z.x+z.w,z.y],[z.x+z.w,z.y+z.h],[z.x,z.y+z.h]];
@@ -395,6 +405,7 @@ function renderTopbar(){
     <div style="display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:6px 11px">
       <span class="ms" style="font-size:16px;color:#7A8290">search</span><span style="font-size:12px;color:#5B636F">Search grid, pour, embed…</span>
       <span class="mono" style="font-size:10px;color:#5B636F;background:rgba(255,255,255,.05);padding:1px 5px;border-radius:4px;margin-left:6px">⌘K</span></div>
+    <button onclick="toggleLock()" class="ghostbtn" title="Lock / unlock editing (L) — PIN to unlock" style="${EDIT_LOCKED?'':'border-color:rgba(34,197,94,.5);color:#86efac'}"><span class="ms" style="font-size:16px">${EDIT_LOCKED?'lock':'lock_open'}</span>${EDIT_LOCKED?'Locked':'Editing'}</button>
     <div style="position:relative">
       <div onclick="toggleRoleMenu()" style="display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:6px 10px 6px 7px;cursor:pointer">
         <div style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:${hexA(pr.accent,.14)}"><span class="ms" style="font-size:16px;color:${pr.accent}">${pr.icon}</span></div>
@@ -767,7 +778,7 @@ function wireMap(){ const el=_cv;
     if(hit&&hit.kind==='foot'){ M.hovPour=null; if(M.hovFoot!==hit.id){M.hovFoot=hit.id;showHovCard(hit.data,x,y);repaint();} }
     else if(hit&&hit.kind==='pour'){ M.hovFoot=null; if(M.hovPour!==hit.id){M.hovPour=hit.id;repaint();} showPourTip(hit.data,x,y); }
     else if(M.hovFoot||M.hovPour){M.hovFoot=null;M.hovPour=null;const hc=document.getElementById('hovcard');if(hc)hc.innerHTML='';repaint();}});
-  el.addEventListener('pointerup',e=>{if(M.drag&&!M.drag.moved){M.sel=null;closeDetail();repaint();}M.drag=null;el.style.cursor=M.tool==='note'?'crosshair':(M.scrollMode==='zoom'?'zoom-in':'grab');});
+  el.addEventListener('pointerup',e=>{if(M.drag&&!M.drag.moved){M.sel=null;M.selPour=null;closeDetail();renderDock();repaint();}M.drag=null;el.style.cursor=M.tool==='note'?'crosshair':(M.scrollMode==='zoom'?'zoom-in':'grab');});
   el.addEventListener('pointerleave',()=>{if(M.hovFoot||M.hovPour){M.hovFoot=null;M.hovPour=null;const hc=document.getElementById('hovcard');if(hc)hc.innerHTML='';repaint();}});
   el.addEventListener('dragover',e=>{if(window.__dragRfi)e.preventDefault();});
   el.addEventListener('drop',e=>{if(!window.__dragRfi)return;e.preventDefault();const r=el.getBoundingClientRect(),f=toFrac(e.clientX-r.left,e.clientY-r.top);dropRfi(window.__dragRfi,f.fx,f.fy);window.__dragRfi=null;});
@@ -1021,15 +1032,44 @@ window.exportSchedule=exportSchedule;
    TOOLS
    ============================================================================ */
 const TOOL_STCOL={'On Site':'#22C55E','Transferred':'#F59E0B','Returned':'#566072','Lost':'#EF4444','Damaged':'#EC4899'};
-function toolsHTML(){ const all=Object.values(DATA.tools||{}),onSite=all.filter(a=>a.status==='On Site'),attn=all.filter(a=>['Lost','Damaged'].includes(a.status)).length;
-  const rows=all.sort((a,b)=>(a.description||'').localeCompare(b.description||'')).map(a=>{const c=TOOL_STCOL[a.status]||'#566072';return `<tr><td class="mono" style="color:#9AA3B0">${esc(a.item_id||'')}</td><td style="font-weight:600">${esc(a.description||'')}</td><td style="color:#9AA3B0">${esc(a.category||'—')}</td><td class="mono" style="text-align:center">${a.qty||1}</td><td><span class="pill" style="color:${c};background:${hexA(c,.14)}">${esc(a.status||'—')}</span></td><td style="color:#9AA3B0">${esc(a.assigned_to||'—')}</td><td class="mono" style="text-align:right">${a.unit_cost?'$'+a.unit_cost:''}</td></tr>`;}).join('')||'<tr><td colspan="7" style="text-align:center;color:#5B636F;padding:20px">Loading inventory…</td></tr>';
-  const stat=(v,l,c)=>`<div class="card" style="padding:12px 18px"><div class="mono" style="font-size:22px;font-weight:750;color:${c}">${v}</div><div style="font-size:11px;color:#8A92A0">${l}</div></div>`;
-  return `<div style="padding:22px;animation:oyFade .35s ease"><div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
-    <div style="display:flex;gap:10px">${stat(onSite.length,'On site','#22C55E')}${stat(all.length,'Total tracked','#3B82F6')}${stat(attn,'Need attention','#EF4444')}</div>
-    <div style="flex:1"></div><button class="ghostbtn" onclick="exportTools()"><span class="ms" style="font-size:15px">download</span>Export</button>
-    <a class="ghostbtn" href="${APP_URLS.tools}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>Tool Inventory app</a></div>
-    <div class="card" style="overflow:hidden;padding:0"><table class="dt"><thead><tr><th>Item ID</th><th>Tool</th><th>Category</th><th style="text-align:center">Qty</th><th>Status</th><th>Assigned</th><th style="text-align:right">Monthly</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+function toolsHTML(){ const all=Object.values(DATA.tools||{}); const view=STATE.toolView||'summary';
+  const onSite=all.filter(a=>a.status==='On Site'); const attn=all.filter(a=>['Lost','Damaged'].includes(a.status)||(a.verified==='Missing'));
+  const monthly=onSite.reduce((s,a)=>s+(+a.unit_cost||0)*(+a.qty||1),0);
+  const head=`<div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap">
+    <div class="seg"><button class="segbtn ${view==='summary'?'on':''}" onclick="setToolView('summary')"><span class="ms" style="font-size:15px;vertical-align:-3px">insights</span> Summary</button><button class="segbtn ${view==='inventory'?'on':''}" onclick="setToolView('inventory')"><span class="ms" style="font-size:15px;vertical-align:-3px">table_rows</span> Inventory</button></div>
+    <div style="flex:1"></div>
+    ${view==='inventory'?`<input class="fld" placeholder="Search tools…" value="${esc(STATE.toolQ||'')}" oninput="toolSearch(this.value)" style="width:190px">`:''}
+    <button class="ghostbtn" onclick="exportTools()"><span class="ms" style="font-size:15px">download</span>Export</button>
+    <a class="ghostbtn" href="${APP_URLS.tools}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>Tool app</a></div>`;
+  return `<div style="padding:22px;animation:oyFade .35s ease">${head}${view==='summary'?toolsSummary(all,onSite,attn,monthly):toolsTable()}</div>`;
 }
+function setToolView(v){ STATE.toolView=v; renderBody(); }
+window.setToolView=setToolView;
+function toolsSummary(all,onSite,attn,monthly){
+  const stat=(v,l,c,ic)=>`<div class="card" style="padding:14px 18px;min-width:128px"><div style="display:flex;align-items:center;gap:7px;color:#8A92A0;font-size:11px"><span class="ms" style="font-size:15px;color:${c}">${ic}</span>${l}</div><div class="mono" style="font-size:25px;font-weight:750;margin-top:6px;color:${c}">${v}</div></div>`;
+  const util=all.length?Math.round(onSite.length/all.length*100):0;
+  const STAT=['On Site','Transferred','Returned','Lost','Damaged']; const totN=all.length||1;
+  const byStat=STAT.map(s=>({s,n:all.filter(a=>a.status===s).length,c:TOOL_STCOL[s]})).filter(x=>x.n);
+  const bar=`<div style="display:flex;height:12px;border-radius:6px;overflow:hidden;background:rgba(255,255,255,.05)">${byStat.map(x=>`<div style="width:${x.n/totN*100}%;background:${x.c}" title="${x.s}: ${x.n}"></div>`).join('')}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:13px;margin-top:10px">${byStat.map(x=>`<div style="display:flex;align-items:center;gap:6px;font-size:11.5px"><span style="width:9px;height:9px;border-radius:2px;background:${x.c}"></span>${x.s} <span class="mono" style="color:#9AA3B0">${x.n}</span></div>`).join('')}</div>`;
+  const cat={}; all.forEach(a=>{const k=a.category||'Uncategorized';const o=(cat[k]=cat[k]||{n:0,on:0,cost:0});o.n++;if(a.status==='On Site'){o.on++;o.cost+=(+a.unit_cost||0)*(+a.qty||1);}});
+  const catRows=Object.entries(cat).sort((a,b)=>b[1].cost-a[1].cost).map(([k,o])=>`<tr><td style="font-weight:600">${esc(k)}</td><td class="mono" style="text-align:center">${o.n}</td><td class="mono" style="text-align:center;color:#22C55E">${o.on}</td><td class="mono" style="text-align:right">${o.cost?'$'+Math.round(o.cost).toLocaleString():'—'}</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:#5B636F;padding:16px">Loading…</td></tr>';
+  const attRows=attn.slice(0,9).map(a=>{const miss=a.verified==='Missing'&&a.status==='On Site';const c=miss?'#F59E0B':(TOOL_STCOL[a.status]||'#EF4444');return `<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)"><span class="pill" style="color:${c};background:${hexA(c,.14)}">${miss?'Missing':esc(a.status)}</span><span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.description||a.item_id)}</span><span class="mono" style="font-size:10.5px;color:#7A8290">${esc(a.assigned_to||'')}</span></div>`;}).join('')||'<div style="color:#5B636F;font-size:12px;padding:10px">Nothing needs attention ✓</div>';
+  return `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+      ${stat(onSite.length,'On site','#22C55E','inventory_2')}${stat(all.length,'Total tracked','#3B82F6','widgets')}${stat('$'+Math.round(monthly).toLocaleString(),'Monthly rental','#F59E0B','payments')}${stat(attn.length,'Need attention',attn.length?'#EF4444':'#8A92A0','report')}${stat(util+'%','Utilization','#A855F7','donut_large')}</div>
+    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px">
+      <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:650;margin-bottom:12px">Inventory by status</div>${bar}
+        <div style="font-size:13px;font-weight:650;margin:22px 0 10px">By category</div>
+        <table class="dt"><thead><tr><th>Category</th><th style="text-align:center">Total</th><th style="text-align:center">On site</th><th style="text-align:right">Monthly</th></tr></thead><tbody>${catRows}</tbody></table></div>
+      <div class="card" style="padding:18px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span class="ms" style="font-size:17px;color:#EF4444">priority_high</span><div style="font-size:13px;font-weight:650">Needs attention</div></div>${attRows}
+        <div style="font-size:11px;color:#7A8290;margin-top:14px;line-height:1.5">Lost, damaged, or missing-on-audit tools. Open the <a href="${APP_URLS.tools}" target="_blank" style="color:#9B8CF6">Tool app</a> to resolve.</div></div></div>`;
+}
+function toolRowsHTML(){ const all=Object.values(DATA.tools||{}); const q=(STATE.toolQ||'').toLowerCase();
+  const list=all.filter(a=>!q||[a.item_id,a.description,a.category,a.assigned_to].some(x=>(x||'').toLowerCase().includes(q))).sort((a,b)=>(a.description||'').localeCompare(b.description||''));
+  return list.map(a=>{const c=TOOL_STCOL[a.status]||'#566072';return `<tr><td class="mono" style="color:#9AA3B0">${esc(a.item_id||'')}</td><td style="font-weight:600">${esc(a.description||'')}</td><td style="color:#9AA3B0">${esc(a.category||'—')}</td><td class="mono" style="text-align:center">${a.qty||1}</td><td><span class="pill" style="color:${c};background:${hexA(c,.14)}">${esc(a.status||'—')}</span></td><td style="color:#9AA3B0">${esc(a.assigned_to||'—')}</td><td class="mono" style="text-align:right">${a.unit_cost?'$'+a.unit_cost:''}</td></tr>`;}).join('')||'<tr><td colspan="7" style="text-align:center;color:#5B636F;padding:20px">'+(all.length?'No tools match.':'Loading inventory…')+'</td></tr>'; }
+function toolsTable(){ return `<div class="card" style="overflow:hidden;padding:0"><table class="dt"><thead><tr><th>Item ID</th><th>Tool</th><th>Category</th><th style="text-align:center">Qty</th><th>Status</th><th>Assigned</th><th style="text-align:right">Monthly</th></tr></thead><tbody id="toolBody">${toolRowsHTML()}</tbody></table></div>`; }
+function toolSearch(q){ STATE.toolQ=q; const b=document.getElementById('toolBody'); if(b)b.innerHTML=toolRowsHTML(); }
+window.toolSearch=toolSearch;
 function exportTools(){ const aoa=[['Item ID','Description','Category','Qty','Status','Assigned','Monthly']];Object.values(DATA.tools||{}).forEach(a=>aoa.push([a.item_id,a.description,a.category,a.qty||1,a.status,a.assigned_to,a.unit_cost]));exportXLSX('tool-inventory',[{name:'Tools',aoa}]); }
 window.exportTools=exportTools;
 
@@ -1132,8 +1172,12 @@ async function sendChat(){ const t=(STATE.chatInput||'').trim(); if(!t||STATE.ch
 window.sendChat=sendChat;
 
 // Bluebeam-style keyboard shortcuts on the map: V=pan, Z=zoom, F=fit
-document.addEventListener('keydown',e=>{ if(!onMap())return; const tg=(e.target&&e.target.tagName)||''; if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT')return; if(e.metaKey||e.ctrlKey||e.altKey)return;
-  const k=e.key.toLowerCase(); if(k==='v')setScrollMode('pan'); else if(k==='z')setScrollMode('zoom'); else if(k==='f')fitMap(); });
+document.addEventListener('keydown',e=>{ if(STATE.screen!=='app')return; const tg=(e.target&&e.target.tagName)||''; if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT')return; if(e.metaKey||e.ctrlKey||e.altKey)return;
+  const k=e.key.toLowerCase();
+  if(k==='l'){ toggleLock(); return; }                 // lock/unlock editing, any screen
+  if(!onMap())return;
+  if(k==='v')setScrollMode('pan'); else if(k==='z')setScrollMode('zoom'); else if(k==='f')fitMap();
+  else if(k==='escape'){ M.sel=null; M.selPour=null; closeDetail(); renderDock(); repaint(); } });
 
 boot();
 </script>

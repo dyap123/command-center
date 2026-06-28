@@ -702,7 +702,16 @@ function toggleLayer(k){ M.layers[k]=!M.layers[k]; renderLayerPanel(); repaint()
 function hovPour(id){ M.hovPour=id; repaint(); }
 function isoPour(id){ M.selPour=M.selPour===id?null:id; renderDock(); repaint(); }
 function zoomBtn(f){ zoomAt(M.box.w/2,M.box.h/2,f); }
-function fitMap(){ M.view={tx:M.plan.ox,ty:M.plan.oy,s:1,init:true}; repaint(); }
+function fitMap(){ if(!M.plan.pw){ repaint(); return; }
+  let minx=1,miny=1,maxx=0,maxy=0,any=false;
+  (M.footings||[]).forEach(f=>{ if(f.del||f.isBeam)return; const n=footNorm(f); any=true; if(n.x<minx)minx=n.x;if(n.y<miny)miny=n.y;if(n.x>maxx)maxx=n.x;if(n.y>maxy)maxy=n.y; });
+  if(!any) Object.entries(DATA.pins||{}).forEach(([id,p])=>{ if(typeof p.x!=='number')return; const pp=pinPos(id,p); any=true; if(pp.x<minx)minx=pp.x;if(pp.y<miny)miny=pp.y;if(pp.x>maxx)maxx=pp.x;if(pp.y>maxy)maxy=pp.y; });
+  if(!any){ M.view={tx:M.plan.ox,ty:M.plan.oy,s:1,init:true}; repaint(); return; }
+  const pad=0.04; minx-=pad;miny-=pad;maxx+=pad;maxy+=pad;
+  const bw=Math.max(1,(maxx-minx)*M.plan.pw), bh=Math.max(1,(maxy-miny)*M.plan.ph), m=18;
+  const s=clampS(Math.min((M.box.w-2*m)/bw,(M.box.h-2*m)/bh));
+  const cx=(minx+maxx)/2, cy=(miny+maxy)/2;
+  M.view={ s, tx:M.box.w/2-cx*M.plan.pw*s, ty:M.box.h/2-cy*M.plan.ph*s, init:true }; repaint(); }
 const clampS=s=>Math.max(.4,Math.min(8,s));
 function zoomAt(px,py,f){ const ns=clampS(M.view.s*f),k=ns/M.view.s; M.view.s=ns;M.view.tx=px-(px-M.view.tx)*k;M.view.ty=py-(py-M.view.ty)*k; repaint(); }
 function toggleNote(){ M.tool=M.tool==='note'?'pan':'note'; const b=document.getElementById('noteBtn'); if(b)b.style.background=M.tool==='note'?'rgba(139,92,246,.22)':''; if(_cv)_cv.style.cursor=M.tool==='note'?'crosshair':'grab'; }
@@ -807,8 +816,10 @@ function pointInPoly(x,y,pts){ let c=false; for(let i=0,j=pts.length-1;i<pts.len
 function wireMap(){ const el=_cv;
   // Pan tool (default): scroll pans. Zoom tool / pinch / ctrl: scroll zooms. (Bluebeam-style)
   el.addEventListener('wheel',e=>{ e.preventDefault(); const r=el.getBoundingClientRect();
-    if(e.ctrlKey || M.scrollMode==='zoom'){ zoomAt(e.clientX-r.left,e.clientY-r.top,e.deltaY<0?1.08:0.93); }
+    if(e.ctrlKey || M.scrollMode==='zoom'){ const dy=Math.max(-120,Math.min(120,e.deltaY)); zoomAt(e.clientX-r.left,e.clientY-r.top,Math.exp(-dy*0.0012)); }
     else { M.view.tx-=e.deltaX; M.view.ty-=e.deltaY; repaint(); } },{passive:false});
+  el.addEventListener('mousedown',e=>{ if(e.button===1)e.preventDefault(); }); // stop middle-click autoscroll
+  el.addEventListener('auxclick',e=>e.preventDefault());
   el.addEventListener('pointerdown',e=>{const r=el.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
     if(M.tool==='note'){const f=toFrac(x,y);addMarkup(f.fx,f.fy);toggleNote();return;}
     const hit=hitTest(x,y); if(hit){M.sel=hit;repaint();openDetail(hit);return;}
@@ -1033,16 +1044,19 @@ function cupPourCard(p){ const c=SEC_COLORS[p.section]||'#888'; const st=cupGetS
   return `<div style="background:rgba(6,6,14,.82);border:1px solid rgba(255,255,255,.06);border-left:3px solid ${c};border-radius:12px;padding:16px;${st==='COMPLETE'?'box-shadow:inset 0 0 0 1px rgba(59,130,246,.3)':isOrd?'box-shadow:inset 0 0 0 1px rgba(34,197,94,.3)':''}"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:5px;background:${c}22;color:${c};flex-shrink:0">${esc(p.section)}</span><span class="mono" style="font-size:13px;font-weight:700;color:rgba(255,255,255,.9)">${esc(p.id)}</span>${p.label?`<span style="font-size:11px;color:rgba(255,255,255,.4);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.label)}</span>`:''}</div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0">${dateEl}${stBtn}</div></div>${mixRows}${inspHtml}${coHtml}${embHtml}<div style="display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid rgba(255,255,255,.05)"><span class="mono" style="font-size:13px;font-weight:700;color:#34D399">${Math.round(p.total)} <span style="color:rgba(255,255,255,.4);font-weight:400;font-size:11px">CY</span></span><span style="font-size:11px;color:rgba(255,255,255,.4)">${p.trucks} trucks</span></div></div>`;
 }
 function cupDefaultMonth(list){ const months=new Set(); list.forEach(p=>{ if(p.date){ const m=(+p.date.split('/')[0])-1; if(m>=0&&m<=11)months.add(m); } }); if(!months.size)return new Date().getMonth(); const cur=new Date().getMonth(); if(months.has(cur))return cur; let best=cur,bd=99; months.forEach(m=>{ const dist=Math.abs(m-cur)*2-(m>=cur?1:0); if(dist<bd){bd=dist;best=m;} }); return best; }
-function poursHTML(){ cupEnsureData(); const list=cupPours(); _cupMax={cy8000:Math.max(1,...list.map(p=>+p.cy8000||0)),cy5000:Math.max(1,...list.map(p=>+p.cy5000||0)),slurry:Math.max(1,...list.map(p=>+p.slurry||0))};
+function poursHTML(){ cupEnsureData(); const allList=cupPours(); const doneN=allList.filter(p=>cupGetStatus(p.id)==='COMPLETE').length; const list=allList.filter(p=>!STATE.hidePourDone||cupGetStatus(p.id)!=='COMPLETE'); _cupMax={cy8000:Math.max(1,...list.map(p=>+p.cy8000||0)),cy5000:Math.max(1,...list.map(p=>+p.cy5000||0)),slurry:Math.max(1,...list.map(p=>+p.slurry||0))};
   if(STATE.pourMonth==null&&list.length)STATE.pourMonth=cupDefaultMonth(list);
   const view=STATE.pourView||'calendar'; const g=list.reduce((a,p)=>{a.total+=p.total;a.trucks+=p.trucks;return a;},{total:0,trucks:0});
   const tabs=[['calendar','Calendar','calendar_month'],['cards','Cards','grid_view']].map(t=>`<button onclick="setPourView('${t[0]}')" class="segbtn ${view===t[0]?'on':''}" style="display:flex;align-items:center;gap:6px"><span class="ms" style="font-size:15px">${t[2]}</span>${t[1]}</button>`).join('');
   const totals=`<div style="display:flex;gap:14px;align-items:center;font-size:11.5px;color:#9AA3B0"><span><b class="mono" style="color:#34D399">${Math.round(g.total).toLocaleString()}</b> CY</span><span><b class="mono">${g.trucks}</b> trucks</span><span><b class="mono">${list.length}</b> pours</span></div>`;
   const dr=`<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#7A8290"><span class="ms" style="font-size:15px;color:#8B5CF6">date_range</span><input type="date" value="${STATE.pourFrom||''}" onchange="cupSetRange('from',this.value)" class="fld" style="padding:4px 7px;color-scheme:dark"><span>→</span><input type="date" value="${STATE.pourTo||''}" onchange="cupSetRange('to',this.value)" class="fld" style="padding:4px 7px;color-scheme:dark">${(STATE.pourFrom||STATE.pourTo)?`<span class="ms" onclick="cupClearRange()" title="Clear range" style="cursor:pointer;color:#9AA3B0">close</span>`:''}</div>`;
-  const head=`<div style="flex-shrink:0;display:flex;align-items:center;gap:14px;padding:14px 20px 12px;flex-wrap:wrap"><div class="seg">${tabs}</div>${dr}${totals}<div style="flex:1"></div>${EDIT_LOCKED&&(CAP.pourEdit||[]).includes(activeRole())?`<span style="font-size:11px;color:#7A8290;display:flex;align-items:center;gap:5px"><span class="ms" style="font-size:14px">lock</span>Unlock to edit</span>`:''}${can('pourEdit')?`<button class="ghostbtn" onclick="cupAddPourModal()"><span class="ms" style="font-size:15px;color:#22C55E">add</span>Add pour</button>`:''}<a class="ghostbtn" href="${APP_URLS.cup}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>Open CUP</a></div>`;
-  const body= !DATA.cupSheetPours&&!list.length ? `<div class="full"><span class="ms">water_drop</span><div>Loading pours from CUP…</div></div>` : (view==='cards'?cupCardsView(list):cupCalendarView(list));
+  const hideToggle=`<button class="ghostbtn" onclick="togglePourDone()" title="Show or hide completed pours to reduce clutter" style="${STATE.hidePourDone?'border-color:rgba(139,92,246,.5);color:#C9BBFF':''}"><span class="ms" style="font-size:15px;color:${STATE.hidePourDone?'#C9BBFF':'#22C55E'}">${STATE.hidePourDone?'visibility_off':'check_circle'}</span>${STATE.hidePourDone?'Show complete':'Hide complete'}${doneN?` · ${doneN}`:''}</button>`;
+  const head=`<div style="flex-shrink:0;display:flex;align-items:center;gap:14px;padding:14px 20px 12px;flex-wrap:wrap"><div class="seg">${tabs}</div>${dr}${totals}<div style="flex:1"></div>${EDIT_LOCKED&&(CAP.pourEdit||[]).includes(activeRole())?`<span style="font-size:11px;color:#7A8290;display:flex;align-items:center;gap:5px"><span class="ms" style="font-size:14px">lock</span>Unlock to edit</span>`:''}${hideToggle}${can('pourEdit')?`<button class="ghostbtn" onclick="cupAddPourModal()"><span class="ms" style="font-size:15px;color:#22C55E">add</span>Add pour</button>`:''}<a class="ghostbtn" href="${APP_URLS.cup}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>Open CUP</a></div>`;
+  const body= !DATA.cupSheetPours&&!allList.length ? `<div class="full"><span class="ms">water_drop</span><div>Loading pours from CUP…</div></div>` : (view==='cards'?cupCardsView(list):cupCalendarView(list));
   return `<div style="display:flex;flex-direction:column;height:100%;animation:oyFade .35s ease">${head}${body}</div>`;
 }
+function togglePourDone(){ STATE.hidePourDone=!STATE.hidePourDone; renderBody(); }
+window.togglePourDone=togglePourDone;
 function setPourView(v){ STATE.pourView=v; renderBody(); }
 window.setPourView=setPourView;
 function cupPourCardGrid(pours){ return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(304px,1fr));gap:14px;align-items:start">${pours.map(p=>`<div data-search="${esc((p.id+' '+p.section+' '+(p.label||'')+' '+(p.date||'')).toLowerCase())}">${cupPourCard(p)}</div>`).join('')||'<div style="color:#5B636F;font-size:12px;padding:10px">No pours in this range.</div>'}</div>`; }

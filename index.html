@@ -59,6 +59,7 @@
   .segbtn.on{background:rgba(139,92,246,.18);color:#C9BBFF}
   .fld{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:9px 11px;color:#E6E9EF;font-size:12.5px;outline:none}
   .fld:focus{border-color:rgba(139,92,246,.5)}
+  .srch-hide{display:none!important}
   .dt{width:100%;border-collapse:collapse;font-size:12.5px}
   .dt th{text-align:left;color:#5B636F;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.5px;font-weight:500;padding:13px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
   .dt td{padding:13px 14px;border-bottom:1px solid rgba(255,255,255,.04)}
@@ -433,8 +434,8 @@ const SEARCH_TABS={schedule:'Find a task…',tools:'Search inventory…',rfis:'S
 function onTopSearch(v){ (STATE.searchByTab=STATE.searchByTab||{})[STATE.activeTab]=v; applyTopSearch(); }
 function clearTopSearch(){ (STATE.searchByTab=STATE.searchByTab||{})[STATE.activeTab]=''; applyTopSearch(); renderTopbar(); const i=document.getElementById('topSearch'); if(i)i.focus(); }
 function applyTopSearch(){ const q=((STATE.searchByTab&&STATE.searchByTab[STATE.activeTab])||'').toLowerCase().trim(); const body=document.getElementById('body'); if(!body)return;
-  const secOK={}; body.querySelectorAll('[data-search]').forEach(r=>{ const m=!q||(r.dataset.search||'').indexOf(q)>=0; r.style.display=m?'':'none'; if(m&&r.dataset.sec)secOK[r.dataset.sec]=1; });
-  body.querySelectorAll('[data-secband]').forEach(r=>{ r.style.display=(!q||secOK[r.dataset.secband])?'':'none'; }); }
+  const secOK={}; body.querySelectorAll('[data-search]').forEach(r=>{ const m=!q||(r.dataset.search||'').indexOf(q)>=0; r.classList.toggle('srch-hide',!m); if(m&&r.dataset.sec)secOK[r.dataset.sec]=1; });
+  body.querySelectorAll('[data-secband]').forEach(r=>{ r.classList.toggle('srch-hide', !(!q||secOK[r.dataset.secband])); }); }
 window.onTopSearch=onTopSearch; window.clearTopSearch=clearTopSearch;
 
 function renderBody(){
@@ -1369,7 +1370,7 @@ function toolGrouped(all){
   }
   return `<div id="toolGroupWrap" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-items:start">${cards}</div>`;
 }
-function toolGroupSearch(q){ STATE.toolQ=q; const ql=(q||'').toLowerCase(); const wrap=document.getElementById('toolGroupWrap'); if(!wrap)return; wrap.querySelectorAll('[data-search]').forEach(r=>{ r.style.display=(!ql||r.dataset.search.indexOf(ql)>=0)?'':'none'; }); }
+function toolGroupSearch(q){ STATE.toolQ=q; const ql=(q||'').toLowerCase(); const wrap=document.getElementById('toolGroupWrap'); if(!wrap)return; wrap.querySelectorAll('[data-search]').forEach(r=>{ r.classList.toggle('srch-hide', !(!ql||r.dataset.search.indexOf(ql)>=0)); }); }
 window.toolGroupSearch=toolGroupSearch;
 function toolsSummary(all,onSite,attn,monthly){
   const stat=(v,l,c,ic)=>`<div class="card" style="padding:14px 18px;min-width:128px"><div style="display:flex;align-items:center;gap:7px;color:#8A92A0;font-size:11px"><span class="ms" style="font-size:15px;color:${c}">${ic}</span>${l}</div><div class="mono" style="font-size:25px;font-weight:750;margin-top:6px;color:${c}">${v}</div></div>`;

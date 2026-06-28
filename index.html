@@ -809,11 +809,11 @@ function drawRFIs(ctx){ for(const [id,r] of Object.entries(DATA.rfi)){ if(typeof
 
 /* interaction */
 function hitTest(px,py){
-  for(const [id,p] of Object.entries(DATA.pins)){ if(typeof p.x!=='number')continue; if(M.snapEmbeds&&_pinSnap[id])continue; /* snapped embeds are decorative on the footing — let the footing take the click */ const pp=pinPos(id,p); const s=S(pp.x,pp.y); if((s.x-px)**2+(s.y-py)**2<=196)return{kind:'pin',id,data:p}; }
-  for(const [id,r] of Object.entries(DATA.rfi)){ if(typeof r.x!=='number')continue; const s=S(r.x,r.y); if((px-s.x)**2+(py-(s.y-18))**2<=120||(px>=s.x-9&&px<=s.x+9&&py>=s.y-26&&py<=s.y))return{kind:'rfi',id,data:r}; }
-  for(const [id,m] of Object.entries(DATA.markups)){ if(typeof m.x!=='number')continue; const s=S(m.x,m.y); if(px>=s.x-6&&px<=s.x+6&&py>=s.y-10&&py<=s.y+2)return{kind:'markup',id,data:m}; }
-  for(let i=M.footings.length-1;i>=0;i--){ const f=M.footings[i]; if(f.del||f.isBeam)continue; const n=footNorm(f),s=S(n.x,n.y),hw=Math.max(3,normSizeX(f.w/2)*M.plan.pw*M.view.s),hh=Math.max(3,normSizeY(f.h/2)*M.plan.ph*M.view.s); if(px>=s.x-hw-2&&px<=s.x+hw+2&&py>=s.y-hh-2&&py<=s.y+hh+2)return{kind:'foot',id:f.no,data:f}; }
-  for(const p of Object.values(_poursCache)){ if(!p.pts)continue; const f=toFrac(px,py); if(pointInPoly(f.fx,f.fy,p.pts))return{kind:'pour',id:p.id,data:p}; }
+  if(M.layers.embeds) for(const [id,p] of Object.entries(DATA.pins)){ if(typeof p.x!=='number')continue; if(M.snapEmbeds&&_pinSnap[id])continue; /* snapped embeds are decorative on the footing — let the footing take the click */ const pp=pinPos(id,p); const s=S(pp.x,pp.y); if((s.x-px)**2+(s.y-py)**2<=196)return{kind:'pin',id,data:p}; }
+  if(M.layers.rfi) for(const [id,r] of Object.entries(DATA.rfi)){ if(typeof r.x!=='number')continue; const s=S(r.x,r.y); if((px-s.x)**2+(py-(s.y-18))**2<=120||(px>=s.x-9&&px<=s.x+9&&py>=s.y-26&&py<=s.y))return{kind:'rfi',id,data:r}; }
+  if(M.layers.markups) for(const [id,m] of Object.entries(DATA.markups)){ if(typeof m.x!=='number')continue; const s=S(m.x,m.y); if(px>=s.x-6&&px<=s.x+6&&py>=s.y-10&&py<=s.y+2)return{kind:'markup',id,data:m}; }
+  if(M.layers.footings) for(let i=M.footings.length-1;i>=0;i--){ const f=M.footings[i]; if(f.del||f.isBeam)continue; const n=footNorm(f),s=S(n.x,n.y),hw=Math.max(3,normSizeX(f.w/2)*M.plan.pw*M.view.s),hh=Math.max(3,normSizeY(f.h/2)*M.plan.ph*M.view.s); if(px>=s.x-hw-2&&px<=s.x+hw+2&&py>=s.y-hh-2&&py<=s.y+hh+2)return{kind:'foot',id:f.no,data:f}; }
+  if(M.layers.pours) for(const p of Object.values(_poursCache)){ if(!p.pts)continue; const f=toFrac(px,py); if(pointInPoly(f.fx,f.fy,p.pts))return{kind:'pour',id:p.id,data:p}; }
   return null;
 }
 function pointInPoly(x,y,pts){ let c=false; for(let i=0,j=pts.length-1;i<pts.length;j=i++){const[xi,yi]=pts[i],[xj,yj]=pts[j];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/((yj-yi)||1e-9)+xi))c=!c;} return c; }

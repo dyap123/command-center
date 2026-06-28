@@ -573,20 +573,23 @@ function buildFootings(){ if(!M.base)return; const E=DATA.footEdits||{};
 /* Snap embeds onto their nearest footing for the main map only (EmbedYap data untouched).
    Anchor bolts live in footings, so we pull each pin to the closest footing and fan
    multiple pins out within that footing's box so they stay distinguishable. */
-let _pinSnap={};
-function buildPinSnap(){ _pinSnap={};
+let _pinSnap={}, _footEmb={};
+function buildPinSnap(){ _pinSnap={}; _footEmb={};
   if(!M.snapEmbeds||!M.base||!DATA.pins) return;
-  const fts=(M.footings||[]).filter(f=>!f.del&&!f.isBeam).map(f=>({n:footNorm(f),hw:Math.abs(normSizeX(f.w/2))||.004,hh:Math.abs(normSizeY(f.h/2))||.004}));
+  const fts=(M.footings||[]).filter(f=>!f.del&&!f.isBeam).map(f=>({f,n:footNorm(f),hw:Math.abs(normSizeX(f.w/2))||.004,hh:Math.abs(normSizeY(f.h/2))||.004}));
   if(!fts.length) return;
   const TH=0.18*0.18; const groups=new Map();
   for(const [id,p] of Object.entries(DATA.pins)){ if(typeof p.x!=='number')continue; let bi=-1,bd=Infinity;
     for(let i=0;i<fts.length;i++){ const dx=fts[i].n.x-p.x, dy=fts[i].n.y-p.y, d=dx*dx+dy*dy; if(d<bd){bd=d;bi=i;} }
     if(bi<0||bd>TH)continue; if(!groups.has(bi))groups.set(bi,[]); groups.get(bi).push(id); }
   for(const [fi,ids] of groups){ const f=fts[fi], k=ids.length, cols=Math.ceil(Math.sqrt(k)), rows=Math.ceil(k/cols);
+    _footEmb[f.f.no]=ids.slice();
     ids.forEach((id,i)=>{ const cx=i%cols, cy=Math.floor(i/cols);
       const fx=cols>1?(cx/(cols-1)-0.5):0, fy=rows>1?(cy/(rows-1)-0.5):0;
       _pinSnap[id]={x:f.n.x+fx*f.hw*1.3, y:f.n.y+fy*f.hh*1.3}; }); } }
 function pinPos(id,p){ const s=_pinSnap[id]; return s||{x:p.x,y:p.y}; }
+function openEmbedFromFooting(id){ const e=DATA.pins[id]; if(e)openDetail({kind:'pin',id,data:e}); }
+window.openEmbedFromFooting=openEmbedFromFooting;
 function toggleSnap(){ M.snapEmbeds=!M.snapEmbeds; buildPinSnap(); renderLayerPanel(); repaint(); }
 window.toggleSnap=toggleSnap;
 function pourOf(f){ const pid=DATA.footingPours[f.no]; return pid&&_poursCache[pid]?_poursCache[pid]:null; }
@@ -806,7 +809,7 @@ function drawRFIs(ctx){ for(const [id,r] of Object.entries(DATA.rfi)){ if(typeof
 
 /* interaction */
 function hitTest(px,py){
-  for(const [id,p] of Object.entries(DATA.pins)){ if(typeof p.x!=='number')continue; const pp=pinPos(id,p); const s=S(pp.x,pp.y); if((s.x-px)**2+(s.y-py)**2<=196)return{kind:'pin',id,data:p}; }
+  for(const [id,p] of Object.entries(DATA.pins)){ if(typeof p.x!=='number')continue; if(M.snapEmbeds&&_pinSnap[id])continue; /* snapped embeds are decorative on the footing — let the footing take the click */ const pp=pinPos(id,p); const s=S(pp.x,pp.y); if((s.x-px)**2+(s.y-py)**2<=196)return{kind:'pin',id,data:p}; }
   for(const [id,r] of Object.entries(DATA.rfi)){ if(typeof r.x!=='number')continue; const s=S(r.x,r.y); if((px-s.x)**2+(py-(s.y-18))**2<=120||(px>=s.x-9&&px<=s.x+9&&py>=s.y-26&&py<=s.y))return{kind:'rfi',id,data:r}; }
   for(const [id,m] of Object.entries(DATA.markups)){ if(typeof m.x!=='number')continue; const s=S(m.x,m.y); if(px>=s.x-6&&px<=s.x+6&&py>=s.y-10&&py<=s.y+2)return{kind:'markup',id,data:m}; }
   for(let i=M.footings.length-1;i>=0;i--){ const f=M.footings[i]; if(f.del||f.isBeam)continue; const n=footNorm(f),s=S(n.x,n.y),hw=Math.max(3,normSizeX(f.w/2)*M.plan.pw*M.view.s),hh=Math.max(3,normSizeY(f.h/2)*M.plan.ph*M.view.s); if(px>=s.x-hw-2&&px<=s.x+hw+2&&py>=s.y-hh-2&&py<=s.y+hh+2)return{kind:'foot',id:f.no,data:f}; }
@@ -880,6 +883,7 @@ function openDetail(hit){
   if(hit.kind==='foot'){ const f=hit.data,p=pourOf(f),col=footColor(f);
     body=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="width:9px;height:9px;border-radius:2px;background:${col}"></span><span class="mono" style="font-size:13px;font-weight:700">FTG ${f.tag||('#'+f.no)}</span></div>
       <div style="display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:11.5px"><span style="color:#7A8290">Type</span><span>${esc(f.type)}</span><span style="color:#7A8290">Size</span><span>${f.wFt}′×${f.lFt}′ · ${f.thk}″</span><span style="color:#7A8290">Volume</span><span class="mono">${f.cyv} CY</span><span style="color:#7A8290">Pour</span><span>${esc(p?p.name:'Unassigned')}</span></div>
+      ${(()=>{ const ids=_footEmb[f.no]||[]; if(!ids.length)return ''; const pills=ids.map(id=>{const e=DATA.pins[id]; if(!e)return ''; const st=pinState(e); const c=(e.stubColumn&&!e.installed)?'#FF9650':PIN_COL[st]; return `<span onclick="openEmbedFromFooting('${esc(id)}')" title="${e.installed?'Installed':'To install'}${e.knifePlate?' · knife plate':''}" style="cursor:pointer;font-size:9px;font-weight:600;padding:2px 7px;border-radius:5px;background:${hexA(c,.16)};color:${c};border:1px solid ${hexA(c,.3)}">${esc(e.embedId||id)}${e.installed?' ✓':''}</span>`;}).join(''); return `<div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.08);padding-top:10px"><div class="mono" style="font-size:10px;color:#7A8290;letter-spacing:.5px;margin-bottom:7px">EMBEDS · ${ids.length}</div><div style="display:flex;flex-wrap:wrap;gap:5px">${pills}</div></div>`; })()}
       ${inspBlock('foot_'+f.no)}
       <a class="btn" style="width:100%;margin-top:12px" href="${APP_URLS.cup}" target="_blank"><span class="ms" style="font-size:15px">open_in_new</span> Edit foundations in CUP</a>`;
   } else if(hit.kind==='pour'){ const p=hit.data,c=POURCOL[p.status]||'#566072';

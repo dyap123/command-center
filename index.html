@@ -223,7 +223,7 @@ function startLegacySync(){ if(_legacy)return; _legacy=true;
   rootListen('embed-checks',v=>{ DATA.embedChecks=v||{}; cupReact(); });
   rootListen('embed-tracker/zones',v=>{ DATA.etZones=v||{}; refreshPours(); });
   rootListen('embed-tracker/embeds',v=>{ DATA.embedTypes=v||{}; if(STATE.activeTab==='tools'&&(STATE.invKind||'tools')==='embed')renderBody(); });
-  rootListen('embed-tracker/pins',v=>{ DATA.pins=v||{}; if(STATE.activeTab==='tools'&&(STATE.invKind||'tools')==='embed')renderBody(); if(onMap()){renderLayerPanel();repaint();} softUpdate(); });
+  rootListen('embed-tracker/pins',v=>{ DATA.pins=v||{}; buildPinSnap(); if(STATE.activeTab==='tools'&&(STATE.invKind||'tools')==='embed')renderBody(); if(onMap()){renderLayerPanel();repaint();} softUpdate(); });
   rootListen('embed-tracker/grid',v=>{ DATA.grid=v; applyGrid(); });
   rootListen('tool-tracker/assets',v=>{ DATA.tools=v||{}; if(STATE.activeTab==='tools')renderBody(); softUpdate(); });
   rootListen('look-ahead-schedule/projects',v=>{ DATA.superSched.projects=v||{}; if(STATE.activeTab==='schedule')renderBody(); });
@@ -544,7 +544,7 @@ const INSP_STAGES=['','READY','PASS','FAIL'], INSP_LABEL={'':'Not started',READY
 const M={ layers:{footings:true,embeds:true,pours:true,rfi:true,markups:true,grid:true},
   view:{tx:0,ty:0,s:1,init:false}, box:{w:1000,h:700}, plan:{pw:0,ph:0,ox:0,oy:0},
   footings:[], byNo:{}, base:null, ox:0, oy:0, calib:{dx:0,dy:0,sx:1,sy:1},
-  sel:null, hovFoot:null, hovPour:null, selPour:null, tool:'pan', scrollMode:'pan', dockOpen:true, colorMode:'status', seqFilter:'ALL', calibMode:false, drag:null };
+  sel:null, hovFoot:null, hovPour:null, selPour:null, tool:'pan', scrollMode:'pan', dockOpen:true, colorMode:'status', seqFilter:'ALL', calibMode:false, snapEmbeds:true, drag:null };
 
 function sideFt(t){ t=String(t).toUpperCase(); const F={F6:5,F6A:5,F7:5.5,F7A:6,F8:6.5,F8A:7,F9:7.5,F10:8,F10A:8.5,F11:9,F12:9.5,F12B:10,F12C:10,F14:11,F201:6,F202:6};
   if(F[t]!=null)return F[t]; if(t.indexOf('MPC')===0){const n=parseInt(t.replace(/\D/g,''))||6;return n>=18?26:(n>=8?22:(n>=6?20:18));}
@@ -568,7 +568,26 @@ function buildGeo(){ const geo=window.FOUNDATION_GEO; if(!geo)return; const PAD=
 function buildFootings(){ if(!M.base)return; const E=DATA.footEdits||{};
   const arr=M.base.map(b=>{const f=Object.assign({},b);const e=E[b.no];if(e){if(e.type!=null)f.type=e.type;if(e.wFt!=null)f.wFt=+e.wFt;if(e.lFt!=null)f.lFt=+e.lFt;if(e.thk!=null)f.thk=+e.thk;if(e.cx!=null)f.cx=+e.cx;if(e.cy!=null)f.cy=+e.cy;f.del=!!e.deleted;}recompFoot(f);return f;});
   Object.keys(E).forEach(kk=>{const e=E[kk];if(!e||!e.added)return;const f={no:+kk,type:e.type||'F8',tag:'#'+kk,thk:+e.thk||30,cx:+e.cx||0,cy:+e.cy||0,wFt:+e.wFt||6,lFt:+e.lFt||6,added:true,del:!!e.deleted,isBeam:false};recompFoot(f);arr.push(f);});
-  M.footings=arr;M.byNo={};arr.forEach(f=>M.byNo[f.no]=f); if(onMap())repaint(); }
+  M.footings=arr;M.byNo={};arr.forEach(f=>M.byNo[f.no]=f); buildPinSnap(); if(onMap())repaint(); }
+/* Snap embeds onto their nearest footing for the main map only (EmbedYap data untouched).
+   Anchor bolts live in footings, so we pull each pin to the closest footing and fan
+   multiple pins out within that footing's box so they stay distinguishable. */
+let _pinSnap={};
+function buildPinSnap(){ _pinSnap={};
+  if(!M.snapEmbeds||!M.base||!DATA.pins) return;
+  const fts=(M.footings||[]).filter(f=>!f.del&&!f.isBeam).map(f=>({n:footNorm(f),hw:Math.abs(normSizeX(f.w/2))||.004,hh:Math.abs(normSizeY(f.h/2))||.004}));
+  if(!fts.length) return;
+  const TH=0.18*0.18; const groups=new Map();
+  for(const [id,p] of Object.entries(DATA.pins)){ if(typeof p.x!=='number')continue; let bi=-1,bd=Infinity;
+    for(let i=0;i<fts.length;i++){ const dx=fts[i].n.x-p.x, dy=fts[i].n.y-p.y, d=dx*dx+dy*dy; if(d<bd){bd=d;bi=i;} }
+    if(bi<0||bd>TH)continue; if(!groups.has(bi))groups.set(bi,[]); groups.get(bi).push(id); }
+  for(const [fi,ids] of groups){ const f=fts[fi], k=ids.length, cols=Math.ceil(Math.sqrt(k)), rows=Math.ceil(k/cols);
+    ids.forEach((id,i)=>{ const cx=i%cols, cy=Math.floor(i/cols);
+      const fx=cols>1?(cx/(cols-1)-0.5):0, fy=rows>1?(cy/(rows-1)-0.5):0;
+      _pinSnap[id]={x:f.n.x+fx*f.hw*1.3, y:f.n.y+fy*f.hh*1.3}; }); } }
+function pinPos(id,p){ const s=_pinSnap[id]; return s||{x:p.x,y:p.y}; }
+function toggleSnap(){ M.snapEmbeds=!M.snapEmbeds; buildPinSnap(); renderLayerPanel(); repaint(); }
+window.toggleSnap=toggleSnap;
 function pourOf(f){ const pid=DATA.footingPours[f.no]; return pid&&_poursCache[pid]?_poursCache[pid]:null; }
 function footColor(f){ const p=pourOf(f); if(M.colorMode==='sequence'){ if(p&&p.sequence){ const i=parseInt(p.sequence); return SEQPAL[(isNaN(i)?0:i)%SEQPAL.length]; } return '#566072'; } if(p)return POURCOL[p.status]||'#566072'; return TYPECOL(f.type); }
 function seqMatch(f){ if(M.seqFilter==='ALL')return true; const p=pourOf(f); const s=p?String(p.sequence):''; return ('Seq '+s)===M.seqFilter||(M.seqFilter==='Seq CUP'&&s.toUpperCase()==='CUP'); }
@@ -635,7 +654,11 @@ function renderLayerPanel(){ const host=document.getElementById('layerpanel'); i
   host.innerHTML=`<div class="mono" style="font-size:10px;color:#5B636F;letter-spacing:1px;margin-bottom:9px">LAYERS</div>`+rows.map(([k,c,n,l])=>{const on=M.layers[k];return `<div onclick="toggleLayer('${k}')" style="display:flex;align-items:center;gap:10px;padding:6px;border-radius:9px;cursor:pointer;background:${on?'rgba(255,255,255,.03)':'transparent'}">
     <span style="width:10px;height:10px;border-radius:3px;background:${c};box-shadow:0 0 8px ${hexA(c,.6)}"></span>
     <span style="flex:1;font-size:12px;font-weight:${on?600:400};color:${on?'#E6E9EF':'#6B7280'}">${l}</span>
-    <span class="mono" style="font-size:10px;color:#7A8290">${n}</span><span class="ms" style="font-size:16px;color:${on?'#C7CDD6':'#5B636F'}">${on?'visibility':'visibility_off'}</span></div>`;}).join('');
+    <span class="mono" style="font-size:10px;color:#7A8290">${n}</span><span class="ms" style="font-size:16px;color:${on?'#C7CDD6':'#5B636F'}">${on?'visibility':'visibility_off'}</span></div>`;}).join('')
+  +`<div onclick="toggleSnap()" title="Snap each embed onto its nearest footing (map only — EmbedYap unchanged)" style="display:flex;align-items:center;gap:10px;padding:6px;margin-top:6px;border-top:1px solid rgba(255,255,255,.06);padding-top:10px;border-radius:9px;cursor:pointer">
+    <span class="ms" style="font-size:16px;color:${M.snapEmbeds?'#3B82F6':'#5B636F'}">${M.snapEmbeds?'my_location':'location_searching'}</span>
+    <span style="flex:1;font-size:12px;font-weight:${M.snapEmbeds?600:400};color:${M.snapEmbeds?'#E6E9EF':'#6B7280'}">Snap embeds to footings</span>
+    <span class="ms" style="font-size:18px;color:${M.snapEmbeds?'#3B82F6':'#5B636F'}">${M.snapEmbeds?'toggle_on':'toggle_off'}</span></div>`;
 }
 function renderDock(){ const dock=document.getElementById('dock'); if(!dock)return;
   const pours=Object.values(_poursCache); const liveFt=M.footings.filter(f=>!f.del);
@@ -747,7 +770,7 @@ let _hasUrgent=false;
 function drawPins(ctx){ _hasUrgent=false;
   // pins scale with zoom so the zoomed-out launch view isn't a sea of big circles
   const rb=Math.max(2.2,Math.min(7,3.4*Math.sqrt(M.view.s))), km=Math.max(3,rb*0.85), kd=Math.max(1.8,rb*0.5);
-  for(const [id,p] of Object.entries(DATA.pins)){ if(typeof p.x!=='number')continue; const s=S(p.x,p.y);
+  for(const [id,p] of Object.entries(DATA.pins)){ if(typeof p.x!=='number')continue; const pp=pinPos(id,p); const s=S(pp.x,pp.y);
     if(s.x<-30||s.y<-30||s.x>M.box.w+30||s.y>M.box.h+30)continue; const sel=M.sel&&M.sel.kind==='pin'&&M.sel.id===id;
     const col=(p.stubColumn&&!p.installed)?'#FF9650':PIN_COL[pinState(p)]; const urgent=p.rfi&&p.rfi.status==='Open';
     const r=sel?rb+1.6:rb;
@@ -773,7 +796,7 @@ function drawRFIs(ctx){ for(const [id,r] of Object.entries(DATA.rfi)){ if(typeof
 
 /* interaction */
 function hitTest(px,py){
-  for(const [id,p] of Object.entries(DATA.pins)){ if(typeof p.x!=='number')continue; const s=S(p.x,p.y); if((s.x-px)**2+(s.y-py)**2<=196)return{kind:'pin',id,data:p}; }
+  for(const [id,p] of Object.entries(DATA.pins)){ if(typeof p.x!=='number')continue; const pp=pinPos(id,p); const s=S(pp.x,pp.y); if((s.x-px)**2+(s.y-py)**2<=196)return{kind:'pin',id,data:p}; }
   for(const [id,r] of Object.entries(DATA.rfi)){ if(typeof r.x!=='number')continue; const s=S(r.x,r.y); if((px-s.x)**2+(py-(s.y-18))**2<=120||(px>=s.x-9&&px<=s.x+9&&py>=s.y-26&&py<=s.y))return{kind:'rfi',id,data:r}; }
   for(const [id,m] of Object.entries(DATA.markups)){ if(typeof m.x!=='number')continue; const s=S(m.x,m.y); if(px>=s.x-6&&px<=s.x+6&&py>=s.y-10&&py<=s.y+2)return{kind:'markup',id,data:m}; }
   for(let i=M.footings.length-1;i>=0;i--){ const f=M.footings[i]; if(f.del||f.isBeam)continue; const n=footNorm(f),s=S(n.x,n.y),hw=Math.max(3,normSizeX(f.w/2)*M.plan.pw*M.view.s),hh=Math.max(3,normSizeY(f.h/2)*M.plan.ph*M.view.s); if(px>=s.x-hw-2&&px<=s.x+hw+2&&py>=s.y-hh-2&&py<=s.y+hh+2)return{kind:'foot',id:f.no,data:f}; }

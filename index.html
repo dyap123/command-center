@@ -1126,6 +1126,7 @@ function scheduleHTML(){
     ${srcToggle}<div class="seg">${tabs}</div>
     <div style="font-size:11.5px;color:#7A8290">${src==='super'?(p?'Live from SuperYap · '+esc(p.name):'No live SuperYap schedule'):'Imported · '+(p?esc(p.name):'none')}</div>
     <div style="flex:1"></div>
+    ${sv==='timeline'?`<button class="ghostbtn" onclick="toggleSchedScroll()" title="Mouse-wheel scrolls ${STATE.schedScrollV?'vertically (tasks)':'horizontally (dates)'} — press H to flip"><span class="ms" style="font-size:16px;color:#9B8CF6">${STATE.schedScrollV?'swap_vert':'swap_horiz'}</span>${STATE.schedScrollV?'Vertical':'Horizontal'}</button>`:''}
     ${canEdit?`<button class="ghostbtn" onclick="document.getElementById('sf').click()"><span class="ms" style="font-size:15px;color:#8B5CF6">upload_file</span>Import Excel</button><input id="sf" type="file" accept=".csv,.xlsx,.xls,.pdf" style="display:none" onchange="importSchedule(this.files[0])">`:''}
     <button class="ghostbtn" onclick="exportSchedule()"><span class="ms" style="font-size:15px">download</span>Export Excel</button>
     <a class="ghostbtn" href="${APP_URLS.super}" target="_blank"><span class="ms" style="font-size:15px">open_in_new</span>Open SuperYap</a></div>`;
@@ -1161,8 +1162,9 @@ function ganttBarDown(e){ if(!can('scheduleEdit'))return; const row=e.currentTar
   document.addEventListener('pointermove',mv); document.addEventListener('pointerup',up); }
 window.schedSetField=schedSetField; window.schedDelTask=schedDelTask; window.schedAddTask=schedAddTask; window.schedToggleSec=schedToggleSec; window.ganttBarDown=ganttBarDown;
 /* vertical mouse-wheel scrolls the timeline horizontally when the cursor is over the timeline (not the task column) */
-function ganttWheel(e){ if(e.shiftKey||Math.abs(e.deltaX)>Math.abs(e.deltaY))return; const c=e.currentTarget; if(c.scrollWidth<=c.clientWidth)return; const rect=c.getBoundingClientRect(); if((e.clientX-rect.left)<360)return; c.scrollLeft+=e.deltaY; e.preventDefault(); }
-window.ganttWheel=ganttWheel;
+function ganttWheel(e){ if(STATE.schedScrollV)return; /* vertical mode: let the browser scroll up/down */ if(e.shiftKey||Math.abs(e.deltaX)>Math.abs(e.deltaY))return; const c=e.currentTarget; if(c.scrollWidth<=c.clientWidth)return; const rect=c.getBoundingClientRect(); if((e.clientX-rect.left)<360)return; c.scrollLeft+=e.deltaY; e.preventDefault(); }
+function toggleSchedScroll(){ STATE.schedScrollV=!STATE.schedScrollV; if(STATE.activeTab==='schedule')renderBody(); toast('Timeline wheel scrolls '+(STATE.schedScrollV?'↕ vertically (tasks)':'↔ horizontally (dates)'),'info'); }
+window.ganttWheel=ganttWheel; window.toggleSchedScroll=toggleSchedScroll;
 function schedCrewControl(t,src,cos){ if(src==='super'){ const known=cos[t.companyId]; return `<select onchange="schedSetField('${t.id}','companyId',this.value)" style="width:100%;min-width:0;max-width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#C7CDD6;font-size:11px;padding:3px 5px">${Object.entries(cos).map(([cid,c])=>`<option value="${cid}" ${cid===t.companyId?'selected':''}>${esc(c.name)}</option>`).join('')}${known||!t.companyId?'':`<option value="${esc(t.companyId)}" selected>${esc(t.company||t.companyId)}</option>`}</select>`; }
   return `<input value="${esc(t.company||'')}" onchange="schedSetField('${t.id}','company',this.value)" placeholder="Crew" style="width:100%;min-width:0;max-width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#C7CDD6;font-size:11px;padding:3px 6px">`; }
 function listHTML(p){ const canEdit=canView('scheduleEdit'); const src=curSchedSrc(); const cos=schedCompanies();
@@ -1502,6 +1504,7 @@ window.sendChat=sendChat;
 document.addEventListener('keydown',e=>{ if(STATE.screen!=='app')return; const tg=(e.target&&e.target.tagName)||''; if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT')return; if(e.metaKey||e.ctrlKey||e.altKey)return;
   const k=e.key.toLowerCase();
   if(k==='l'){ toggleLock(); return; }                 // lock/unlock editing, any screen
+  if(k==='h'&&STATE.activeTab==='schedule'){ toggleSchedScroll(); return; }  // flip timeline wheel scroll axis
   if(!onMap())return;
   if(k==='v')setScrollMode('pan'); else if(k==='z')setScrollMode('zoom'); else if(k==='f')fitMap();
   else if(k==='escape'){ M.sel=null; M.selPour=null; closeDetail(); renderDock(); repaint(); } });

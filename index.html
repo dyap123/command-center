@@ -60,6 +60,7 @@
   .fld{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:9px 11px;color:#E6E9EF;font-size:12.5px;outline:none}
   .fld:focus{border-color:rgba(139,92,246,.5)}
   .srch-hide{display:none!important}
+  @keyframes spin{to{transform:rotate(360deg)}}
   .dt{width:100%;border-collapse:collapse;font-size:12.5px}
   .dt th{text-align:left;color:#5B636F;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.5px;font-weight:500;padding:13px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
   .dt td{padding:13px 14px;border-bottom:1px solid rgba(255,255,255,.04)}
@@ -590,6 +591,19 @@ function buildPinSnap(){ _pinSnap={}; _footEmb={};
 function pinPos(id,p){ const s=_pinSnap[id]; return s||{x:p.x,y:p.y}; }
 function openEmbedFromFooting(id){ const e=DATA.pins[id]; if(e)openDetail({kind:'pin',id,data:e}); }
 window.openEmbedFromFooting=openEmbedFromFooting;
+async function syncMap(){ const ic=document.getElementById('syncMapIcon'); if(ic)ic.style.animation='spin .8s linear infinite';
+  try{
+    const [fe,fp,cp,ez,pins,grid]=await Promise.all([
+      rootGet('cup-foundation/footingEdits'),rootGet('cup-foundation/footingPours'),rootGet('cup-foundation/pours'),
+      rootGet('embed-tracker/zones'),rootGet('embed-tracker/pins'),rootGet('embed-tracker/grid')]);
+    DATA.footEdits=fe||{}; DATA.footingPours=fp||{}; DATA.cupPours=cp||{}; DATA.etZones=ez||{}; DATA.pins=pins||{}; DATA.grid=grid;
+    applyGrid(); if(M.base)buildFootings(); refreshPours();
+    if(onMap()){ renderLayerPanel(); renderDock(); repaint(); }
+    toast('Footing map resynced · '+(M.footings?M.footings.filter(f=>!f.del).length:0)+' footings · '+Object.keys(DATA.pins).length+' embeds','ok');
+  }catch(e){ toast('Sync failed: '+e.message,'err'); }
+  if(ic)ic.style.animation='';
+}
+window.syncMap=syncMap;
 function toggleSnap(){ M.snapEmbeds=!M.snapEmbeds; buildPinSnap(); renderLayerPanel(); repaint(); }
 window.toggleSnap=toggleSnap;
 function pourOf(f){ const pid=DATA.footingPours[f.no]; return pid&&_poursCache[pid]?_poursCache[pid]:null; }
@@ -612,6 +626,7 @@ function renderMap(b){
       <div style="display:flex;align-items:center;gap:7px"><span class="mono" style="font-size:10px;color:#5B636F">COLOR</span>
         <div class="seg">${['Status','Sequence'].map(c=>`<button class="segbtn ${M.colorMode===c.toLowerCase()?'on':''}" onclick="setColorMode('${c.toLowerCase()}')">${c}</button>`).join('')}</div></div>
       <div style="flex:1"></div>
+      <button id="syncMapBtn" class="ghostbtn" onclick="syncMap()" title="Re-pull footings, embeds & pours from the live data"><span class="ms" id="syncMapIcon" style="font-size:15px;color:#22C55E">sync</span>Sync</button>
       <a class="ghostbtn" href="${APP_URLS.cup}" target="_blank"><span class="ms" style="font-size:15px;color:#8B5CF6">open_in_new</span>CUP Pour Dashboard</a>
       <a class="ghostbtn" href="${APP_URLS.embed}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>EmbedYap</a>
       <button class="ghostbtn" onclick="toggleDock()" title="Show / hide info panel" style="padding:7px 9px"><span class="ms" style="font-size:16px">${M.dockOpen?'right_panel_close':'right_panel_open'}</span></button>

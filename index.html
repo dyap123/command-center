@@ -1116,7 +1116,7 @@ function schedToggleSec(sid){ STATE.schedCollapsed=STATE.schedCollapsed||{}; STA
 function ganttBarDown(e){ if(!can('scheduleEdit'))return; const row=e.currentTarget; e.preventDefault();
   const tid=row.dataset.tid, startIdx=+row.dataset.start, cw=+row.dataset.cw, cc=row.dataset.cc, letter=row.dataset.letter;
   const rect=row.getBoundingClientRect(); const dayAt=x=>Math.floor((x-rect.left)/cw); let days=+row.dataset.days;
-  const draw=nd=>{ Array.from(row.children).forEach((cell,i)=>{ const on=i>=startIdx&&i<startIdx+nd; cell.innerHTML=on?`<div class="mono" style="width:${cw-5}px;height:20px;background:${cc};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:rgba(11,14,19,.85)">${letter}</div>`:''; }); };
+  const draw=nd=>{ Array.from(row.children).forEach((cell,i)=>{ const on=i>=startIdx&&i<startIdx+nd; cell.innerHTML=on?`<div class="mono" style="width:100%;height:100%;background:${cc};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:rgba(11,14,19,.85)">${letter}</div>`:''; }); };
   const setTo=x=>{ let nd=dayAt(x)-startIdx+1; if(nd<1)nd=1; if(nd!==days){days=nd; draw(days);} };
   setTo(e.clientX);
   const mv=ev=>setTo(ev.clientX); const up=()=>{ document.removeEventListener('pointermove',mv); document.removeEventListener('pointerup',up); schedSetField(tid,'days',days); };
@@ -1140,13 +1140,14 @@ function ganttHTML(p){
   const lastEnd=tasks.reduce((mx,t)=>{const s=t.start?new Date(t.start+'T00:00:00'):anchorD;const e=new Date(s);e.setDate(e.getDate()+(t.days||1)+2);return e>mx?e:mx;},anchorD);
   const N=Math.max(42,Math.min(180,Math.ceil((lastEnd-anchorD)/864e5)+4)); const cellW=30,rowH=34,wkl=['S','M','T','W','T','F','S'];
   const dayIdx=d=>Math.round((new Date(d+'T00:00:00')-anchorD)/864e5);
+  const todayI0=Math.round((today-anchorD)/864e5);
   let gdays='',months=[];
   for(let i=0;i<N;i++){const d=new Date(anchorD);d.setDate(d.getDate()+i);const we=d.getDay()===0||d.getDay()===6;
-    gdays+=`<div style="width:${cellW}px;box-sizing:border-box;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid rgba(255,255,255,.04);${we?'background:rgba(255,255,255,.022);':''}"><span style="font-size:8px;color:#5B636F">${wkl[d.getDay()]}</span><span class="mono" style="font-size:10px;color:#9AA3B0">${d.getDate()}</span></div>`;
+    gdays+=`<div style="flex:1 1 ${cellW}px;min-width:${cellW}px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid rgba(255,255,255,.04);${i===todayI0?'background:rgba(59,130,246,.12);':we?'background:rgba(255,255,255,.022);':''}"><span style="font-size:8px;color:#5B636F">${wkl[d.getDay()]}</span><span class="mono" style="font-size:10px;color:${i===todayI0?'#93c5fd':'#9AA3B0'}">${d.getDate()}</span></div>`;
     const last=months[months.length-1]; if(!last||last.m!==d.getMonth()){months.push({m:d.getMonth(),label:d.toLocaleString(undefined,{month:'short'})+' '+d.getFullYear(),start:i,span:1});}else last.span++;}
-  const timelineW=N*cellW; const tlStyle='width:'+timelineW+'px;flex-shrink:0';
-  const monthBar=months.map(g=>`<div style="position:absolute;left:${g.start*cellW}px;width:${g.span*cellW}px;top:0;height:22px;display:flex;align-items:center;padding-left:8px;font-size:11px;font-weight:600;color:#C7CDD6;border-left:1px solid rgba(255,255,255,.08)">${g.label}</div>`).join('');
-  const todayI=Math.round((today-anchorD)/864e5); const todayLine=(todayI>=0&&todayI<N)?`<div style="position:absolute;left:${LEFTW+todayI*cellW+cellW/2}px;top:52px;bottom:0;width:2px;background:linear-gradient(180deg,#3B82F6,rgba(59,130,246,.1));z-index:4;box-shadow:0 0 10px rgba(59,130,246,.6)"></div>`:'';
+  const timelineW=N*cellW; const tlStyle='flex:1 1 0;min-width:'+timelineW+'px';
+  const monthBar=months.map(g=>`<div style="flex:${g.span} 1 ${g.span*cellW}px;min-width:${g.span*cellW}px;box-sizing:border-box;height:22px;display:flex;align-items:center;padding-left:8px;font-size:11px;font-weight:600;color:#C7CDD6;border-left:1px solid rgba(255,255,255,.08)">${g.label}</div>`).join('');
+  const todayLine='';
   const tasksBySec={}; tasks.forEach(t=>{(tasksBySec[t.sectionId]=tasksBySec[t.sectionId]||[]).push(t);});
   let secHTML='';
   secs.forEach(([sid,sec])=>{ const isC=!!collapsed[sid];
@@ -1154,7 +1155,7 @@ function ganttHTML(p){
     if(isC)return;
     (tasksBySec[sid]||[]).sort((a,b)=>(a.order||0)-(b.order||0)).forEach(t=>{ const start=t.start?dayIdx(t.start):0; const days=t.days||1; const cc=t.crewColor||crewColor(t.company); const letter=(t.company||t.companyId||'?').replace(/[^A-Za-z]/g,'').slice(0,1).toUpperCase()||'?'; const hay=esc((t.name+' '+(t.company||t.companyId||'')).toLowerCase());
       let cells=''; for(let i=0;i<N;i++){ const dd=new Date(anchorD); dd.setDate(dd.getDate()+i); const we=dd.getDay()===0||dd.getDay()===6; const on=i>=start&&i<start+days;
-        cells+=`<div style="width:${cellW}px;box-sizing:border-box;flex-shrink:0;height:${rowH}px;border-right:1px solid rgba(255,255,255,.04);${we?'background:rgba(255,255,255,.02);':''}display:flex;align-items:center;justify-content:center">${on?`<div class="mono" style="width:${cellW-5}px;height:${rowH-14}px;background:${cc};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:rgba(11,14,19,.85)">${letter}</div>`:''}</div>`; }
+        cells+=`<div style="flex:1 1 ${cellW}px;min-width:${cellW}px;box-sizing:border-box;height:${rowH}px;border-right:1px solid rgba(255,255,255,.04);${i===todayI0?'background:rgba(59,130,246,.10);':we?'background:rgba(255,255,255,.02);':''}display:flex;align-items:center;justify-content:center;padding:6px 3px">${on?`<div class="mono" style="width:100%;height:100%;background:${cc};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:rgba(11,14,19,.85)">${letter}</div>`:''}</div>`; }
       const nameCell=canEdit?`<input value="${esc(t.name)}" onchange="schedSetField('${t.id}','name',this.value)" style="flex:1;min-width:0;background:transparent;border:0;outline:0;color:#E6E9EF;font-size:11.5px">`:`<span style="font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</span>`;
       const daysCell=canEdit?`<input type="number" min="1" value="${days}" onchange="schedSetField('${t.id}','days',this.value)" style="width:34px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:5px;color:#E6E9EF;font-size:10.5px;text-align:center;padding:1px">`:`<span class="mono" style="font-size:11px;color:#9AA3B0">${days}</span>`;
       const crewCell=canEdit?schedCrewControl(t,src,cos):`<div style="display:flex;align-items:center;gap:6px;min-width:0"><span class="mono" style="width:18px;height:18px;border-radius:50%;background:${cc};display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;color:#0B0E13;flex-shrink:0">${letter}</span><span style="font-size:11px;color:#9AA3B0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.company||'')}</span></div>`;
@@ -1171,7 +1172,7 @@ function ganttHTML(p){
       <div style="min-width:${LEFTW+timelineW}px;position:relative">
         <div style="display:flex;position:sticky;top:0;z-index:6;background:#0C1017">
           <div style="width:${LEFTW}px;flex-shrink:0;position:sticky;left:0;z-index:7;background:#0C1017;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08);display:grid;grid-template-columns:${lcols};gap:6px;align-items:end;overflow:hidden;box-shadow:6px 0 8px -5px rgba(0,0,0,.6)"><div class="mono" style="font-size:9.5px;color:#5B636F;padding:0 14px 8px">TASK</div><div class="mono" style="font-size:9.5px;color:#5B636F;text-align:center;padding:0 0 8px">DAYS</div><div class="mono" style="font-size:9.5px;color:#5B636F;padding:0 0 8px">CREW</div>${canEdit?'<div></div>':''}</div>
-          <div style="position:relative;${tlStyle};border-bottom:1px solid rgba(255,255,255,.08)"><div style="position:relative;height:22px">${monthBar}</div><div style="display:flex;height:30px">${gdays}</div></div></div>
+          <div style="${tlStyle};border-bottom:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column"><div style="display:flex;height:22px">${monthBar}</div><div style="display:flex;height:30px">${gdays}</div></div></div>
         ${todayLine}${secHTML}
       </div></div></div>`;
 }

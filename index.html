@@ -528,10 +528,16 @@ const EY_PLAN={x0:0.085,x1:0.945,y0:0.10,y1:0.93};
 let GCOLS=Array.from({length:26},(_,i)=>String.fromCharCode(65+i));
 let GROWS=(()=>{const r=[];for(let i=33;i>=8;i--)r.push(String(i));return r;})();
 let GPLAN={...EY_PLAN},GCOLW=null,GROWH=null;
-function applyGrid(){ const g=DATA.mapGrid||DATA.grid; if(g&&g.cols&&g.rows){ GCOLS=g.cols;GROWS=g.rows;GPLAN=g.plan||EY_PLAN;GCOLW=g.colW||null;GROWH=g.rowH||null; } if(onMap())repaint(); }
+function colLabel(i){ return i<26?String.fromCharCode(65+i):String.fromCharCode(64+Math.floor(i/26))+String.fromCharCode(65+i%26); }
+/* footing grid = gridlines drawn through the footings' own column/row positions, so the
+   grid is anchored to the (accurate) footing map instead of the evenly-spaced embed plan */
+function useFootGrid(){ return M.gridSrc!=='embed' && M.footCols && M.footCols.length>1 && M.footRows && M.footRows.length>1; }
+function applyGrid(){ if(useFootGrid()){ GCOLS=M.footCols.map((_,i)=>colLabel(i)); GROWS=M.footRows.map((_,i)=>String(33-i)); }
+  else { const g=DATA.mapGrid||DATA.grid; if(g&&g.cols&&g.rows){ GCOLS=g.cols;GROWS=g.rows;GPLAN=g.plan||EY_PLAN;GCOLW=g.colW||null;GROWH=g.rowH||null; } }
+  if(onMap())repaint(); }
 function cumFrac(w,n){ if(n<=1)return[0]; if(!w||w.length!==n-1)return Array.from({length:n},(_,i)=>i/(n-1)); const t=w.reduce((a,b)=>a+(+b||0),0)||1; let a=0;const o=[0]; for(let i=0;i<w.length;i++){a+=(+w[i]||0);o.push(a/t);} return o; }
-function colX(i){ const f=cumFrac(GCOLW,GCOLS.length); return GPLAN.x0+(GPLAN.x1-GPLAN.x0)*(f[i]!=null?f[i]:0); }
-function rowY(i){ const f=cumFrac(GROWH,GROWS.length); return GPLAN.y0+(GPLAN.y1-GPLAN.y0)*(f[i]!=null?f[i]:0); }
+function colX(i){ if(useFootGrid()&&M.footCols[i]!=null) return footingToNorm(M.footCols[i],(FB.y0+FB.y1)/2).x; const f=cumFrac(GCOLW,GCOLS.length); return GPLAN.x0+(GPLAN.x1-GPLAN.x0)*(f[i]!=null?f[i]:0); }
+function rowY(i){ if(useFootGrid()&&M.footRows[i]!=null) return footingToNorm((FB.x0+FB.x1)/2,M.footRows[i]).y; const f=cumFrac(GROWH,GROWS.length); return GPLAN.y0+(GPLAN.y1-GPLAN.y0)*(f[i]!=null?f[i]:0); }
 function footingToNorm(px,py){ let u=(px-FB.x0)/(FB.x1-FB.x0),v=(py-FB.y0)/(FB.y1-FB.y0);
   u=0.5+(u-0.5)*M.calib.sx+M.calib.dx; v=0.5+(v-0.5)*M.calib.sy+M.calib.dy;
   return {x:EY_PLAN.x0+u*(EY_PLAN.x1-EY_PLAN.x0),y:EY_PLAN.y0+v*(EY_PLAN.y1-EY_PLAN.y0)}; }
@@ -546,7 +552,7 @@ const INSP_STAGES=['','READY','PASS','FAIL'], INSP_LABEL={'':'Not started',READY
 const M={ layers:{footings:true,embeds:true,pours:true,rfi:true,markups:true,grid:true},
   view:{tx:0,ty:0,s:1,init:false}, box:{w:1000,h:700}, plan:{pw:0,ph:0,ox:0,oy:0},
   footings:[], byNo:{}, base:null, ox:0, oy:0, calib:{dx:0,dy:0,sx:1,sy:1},
-  sel:null, hovFoot:null, hovPour:null, selPour:null, tool:'pan', scrollMode:'pan', dockOpen:true, colorMode:'status', seqFilter:'ALL', calibMode:false, snapEmbeds:true, userView:false, drag:null };
+  sel:null, hovFoot:null, hovPour:null, selPour:null, tool:'pan', scrollMode:'pan', dockOpen:true, colorMode:'status', seqFilter:'ALL', calibMode:false, snapEmbeds:true, userView:false, gridSrc:'footing', footCols:null, footRows:null, drag:null };
 
 function sideFt(t){ t=String(t).toUpperCase(); const F={F6:5,F6A:5,F7:5.5,F7A:6,F8:6.5,F8A:7,F9:7.5,F10:8,F10A:8.5,F11:9,F12:9.5,F12B:10,F12C:10,F14:11,F201:6,F202:6};
   if(F[t]!=null)return F[t]; if(t.indexOf('MPC')===0){const n=parseInt(t.replace(/\D/g,''))||6;return n>=18?26:(n>=8?22:(n>=6?20:18));}
@@ -565,6 +571,9 @@ function buildGeo(){ const geo=window.FOUNDATION_GEO; if(!geo)return; const PAD=
   [...foot].filter(f=>!f.isBeam).sort((a,b)=>b.w-a.w).forEach(f=>{if(!occ.has(k(f.cx,f.cy))){occ.add(k(f.cx,f.cy));return;}let pl=false;for(let r=1;r<=4&&!pl;r++)for(let dx=-r;dx<=r&&!pl;dx++)for(let dy=-r;dy<=r&&!pl;dy++){if(Math.max(Math.abs(dx),Math.abs(dy))!==r)continue;const nx=f.cx+dx*colPitch,ny=f.cy+dy*rowPitch;if(!occ.has(k(nx,ny))){f.cx=nx;f.cy=ny;occ.add(k(nx,ny));pl=true;}}if(!pl)occ.add(k(f.cx,f.cy));});
   const mr=colPitch*3.4,tx=colPitch*.5,ty=rowPitch*.5;
   foot.forEach(g=>{if(!g.isBeam)return;let L,R,U,D;for(const f of foot){if(f===g||f.isBeam)continue;const dx=f.cx-g.cx,dy=f.cy-g.cy;if(Math.abs(dy)<ty&&Math.abs(dx)<mr){if(dx<0){if(!L||f.cx>L.cx)L=f;}else if(dx>0){if(!R||f.cx<R.cx)R=f;}}if(Math.abs(dx)<tx&&Math.abs(dy)<mr){if(dy<0){if(!U||f.cy>U.cy)U=f;}else if(dy>0){if(!D||f.cy<D.cy)D=f;}}}const hS=(L&&R)?R.cx-L.cx:(L?g.cx-L.cx:(R?R.cx-g.cx:1e9)),vS=(U&&D)?D.cy-U.cy:(U?g.cy-U.cy:(D?D.cy-g.cy:1e9));let x1,y1,x2,y2;if(hS<=vS){y1=y2=g.cy;x1=L?L.cx:g.cx-colPitch*.55;x2=R?R.cx:g.cx+colPitch*.55;}else{x1=x2=g.cx;y1=U?U.cy:g.cy-rowPitch*.55;y2=D?D.cy:g.cy+rowPitch*.55;}g.beam={x1,y1,x2,y2};});
+  M.footCols=[...new Set(foot.filter(f=>!f.isBeam).map(f=>Math.round(f.cx+ox)))].sort((a,b)=>a-b);
+  M.footRows=[...new Set(foot.filter(f=>!f.isBeam).map(f=>Math.round(f.cy+oy)))].sort((a,b)=>a-b);
+  applyGrid();
   M.base=foot.map(f=>({no:f.no,type:f.type,tag:f.tag,cx:f.cx,cy:f.cy,thk:f.thk,wFt:f.wFt,lFt:f.lFt,isBeam:f.isBeam,beam:f.beam})); M.ox=ox;M.oy=oy; buildFootings();
 }
 function buildFootings(){ if(!M.base)return; const E=DATA.footEdits||{};
@@ -605,6 +614,8 @@ async function syncMap(){ const ic=document.getElementById('syncMapIcon'); if(ic
 }
 window.syncMap=syncMap;
 function toggleSnap(){ M.snapEmbeds=!M.snapEmbeds; buildPinSnap(); renderLayerPanel(); repaint(); }
+function toggleGridSrc(){ M.gridSrc=M.gridSrc==='embed'?'footing':'embed'; applyGrid(); renderLayerPanel(); repaint(); }
+window.toggleGridSrc=toggleGridSrc;
 window.toggleSnap=toggleSnap;
 function pourOf(f){ const pid=DATA.footingPours[f.no]; return pid&&_poursCache[pid]?_poursCache[pid]:null; }
 function footColor(f){ const p=pourOf(f); if(M.colorMode==='sequence'){ if(p&&p.sequence){ const i=parseInt(p.sequence); return SEQPAL[(isNaN(i)?0:i)%SEQPAL.length]; } return '#566072'; } if(p)return POURCOL[p.status]||'#566072'; return TYPECOL(f.type); }
@@ -677,7 +688,11 @@ function renderLayerPanel(){ const host=document.getElementById('layerpanel'); i
   +`<div onclick="toggleSnap()" title="Snap each embed onto its nearest footing (map only — EmbedYap unchanged)" style="display:flex;align-items:center;gap:10px;padding:6px;margin-top:6px;border-top:1px solid rgba(255,255,255,.06);padding-top:10px;border-radius:9px;cursor:pointer">
     <span class="ms" style="font-size:16px;color:${M.snapEmbeds?'#3B82F6':'#5B636F'}">${M.snapEmbeds?'my_location':'location_searching'}</span>
     <span style="flex:1;font-size:12px;font-weight:${M.snapEmbeds?600:400};color:${M.snapEmbeds?'#E6E9EF':'#6B7280'}">Snap embeds to footings</span>
-    <span class="ms" style="font-size:18px;color:${M.snapEmbeds?'#3B82F6':'#5B636F'}">${M.snapEmbeds?'toggle_on':'toggle_off'}</span></div>`;
+    <span class="ms" style="font-size:18px;color:${M.snapEmbeds?'#3B82F6':'#5B636F'}">${M.snapEmbeds?'toggle_on':'toggle_off'}</span></div>`
+  +`<div onclick="toggleGridSrc()" title="Gridlines from the footing map (anchored to footings) vs the even EmbedYap grid" style="display:flex;align-items:center;gap:10px;padding:6px;border-radius:9px;cursor:pointer">
+    <span class="ms" style="font-size:16px;color:${M.gridSrc!=='embed'?'#22C55E':'#5B636F'}">grid_on</span>
+    <span style="flex:1;font-size:12px;font-weight:${M.gridSrc!=='embed'?600:400};color:${M.gridSrc!=='embed'?'#E6E9EF':'#6B7280'}">Grid: ${M.gridSrc!=='embed'?'Footing map':'EmbedYap'}</span>
+    <span class="ms" style="font-size:18px;color:${M.gridSrc!=='embed'?'#22C55E':'#5B636F'}">${M.gridSrc!=='embed'?'toggle_on':'toggle_off'}</span></div>`;
 }
 function renderDock(){ const dock=document.getElementById('dock'); if(!dock)return;
   const pours=Object.values(_poursCache); const liveFt=M.footings.filter(f=>!f.del);

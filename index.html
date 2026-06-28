@@ -544,7 +544,7 @@ const INSP_STAGES=['','READY','PASS','FAIL'], INSP_LABEL={'':'Not started',READY
 const M={ layers:{footings:true,embeds:true,pours:true,rfi:true,markups:true,grid:true},
   view:{tx:0,ty:0,s:1,init:false}, box:{w:1000,h:700}, plan:{pw:0,ph:0,ox:0,oy:0},
   footings:[], byNo:{}, base:null, ox:0, oy:0, calib:{dx:0,dy:0,sx:1,sy:1},
-  sel:null, hovFoot:null, hovPour:null, selPour:null, tool:'pan', scrollMode:'pan', dockOpen:true, colorMode:'status', seqFilter:'ALL', calibMode:false, snapEmbeds:true, drag:null };
+  sel:null, hovFoot:null, hovPour:null, selPour:null, tool:'pan', scrollMode:'pan', dockOpen:true, colorMode:'status', seqFilter:'ALL', calibMode:false, snapEmbeds:true, userView:false, drag:null };
 
 function sideFt(t){ t=String(t).toUpperCase(); const F={F6:5,F6A:5,F7:5.5,F7A:6,F8:6.5,F8A:7,F9:7.5,F10:8,F10A:8.5,F11:9,F12:9.5,F12B:10,F12C:10,F14:11,F201:6,F202:6};
   if(F[t]!=null)return F[t]; if(t.indexOf('MPC')===0){const n=parseInt(t.replace(/\D/g,''))||6;return n>=18?26:(n>=8?22:(n>=6?20:18));}
@@ -568,7 +568,7 @@ function buildGeo(){ const geo=window.FOUNDATION_GEO; if(!geo)return; const PAD=
 function buildFootings(){ if(!M.base)return; const E=DATA.footEdits||{};
   const arr=M.base.map(b=>{const f=Object.assign({},b);const e=E[b.no];if(e){if(e.type!=null)f.type=e.type;if(e.wFt!=null)f.wFt=+e.wFt;if(e.lFt!=null)f.lFt=+e.lFt;if(e.thk!=null)f.thk=+e.thk;if(e.cx!=null)f.cx=+e.cx;if(e.cy!=null)f.cy=+e.cy;f.del=!!e.deleted;}recompFoot(f);return f;});
   Object.keys(E).forEach(kk=>{const e=E[kk];if(!e||!e.added)return;const f={no:+kk,type:e.type||'F8',tag:'#'+kk,thk:+e.thk||30,cx:+e.cx||0,cy:+e.cy||0,wFt:+e.wFt||6,lFt:+e.lFt||6,added:true,del:!!e.deleted,isBeam:false};recompFoot(f);arr.push(f);});
-  M.footings=arr;M.byNo={};arr.forEach(f=>M.byNo[f.no]=f); buildPinSnap(); if(onMap())repaint(); }
+  M.footings=arr;M.byNo={};arr.forEach(f=>M.byNo[f.no]=f); buildPinSnap(); if(onMap()){ if(!M.userView&&M.footings.length)fitMap(); else repaint(); } }
 /* Snap embeds onto their nearest footing for the main map only (EmbedYap data untouched).
    Anchor bolts live in footings, so we pull each pin to the closest footing and fan
    multiple pins out within that footing's box so they stay distinguishable. */
@@ -645,7 +645,7 @@ function renderMap(b){
   renderLayerPanel(); renderDock();
   if(!M.base) buildGeo();
   const wrap=document.getElementById('canvaswrap');
-  const ro=new ResizeObserver(()=>{ const r=wrap.getBoundingClientRect(); M.box={w:r.width,h:r.height}; computePlan(); if(!M.view.init){M.view={tx:M.plan.ox,ty:M.plan.oy,s:1,init:true};} repaint(); }); ro.observe(wrap);
+  const ro=new ResizeObserver(()=>{ const r=wrap.getBoundingClientRect(); M.box={w:r.width,h:r.height}; computePlan(); if(!M.view.init){M.view={tx:M.plan.ox,ty:M.plan.oy,s:1,init:true};} if(!M.userView&&M.footings&&M.footings.length)fitMap(); else repaint(); }); ro.observe(wrap);
   wireMap();
   const r=wrap.getBoundingClientRect(); M.box={w:r.width,h:r.height}; computePlan(); if(!M.view.init)M.view={tx:M.plan.ox,ty:M.plan.oy,s:1,init:true}; repaint();
 }
@@ -702,18 +702,18 @@ function toggleLayer(k){ M.layers[k]=!M.layers[k]; renderLayerPanel(); repaint()
 function hovPour(id){ M.hovPour=id; repaint(); }
 function isoPour(id){ M.selPour=M.selPour===id?null:id; renderDock(); repaint(); }
 function zoomBtn(f){ zoomAt(M.box.w/2,M.box.h/2,f); }
-function fitMap(){ if(!M.plan.pw){ repaint(); return; }
+function fitMap(){ M.userView=false; if(!M.plan.pw){ repaint(); return; }
   let minx=1,miny=1,maxx=0,maxy=0,any=false;
   (M.footings||[]).forEach(f=>{ if(f.del||f.isBeam)return; const n=footNorm(f); any=true; if(n.x<minx)minx=n.x;if(n.y<miny)miny=n.y;if(n.x>maxx)maxx=n.x;if(n.y>maxy)maxy=n.y; });
   if(!any) Object.entries(DATA.pins||{}).forEach(([id,p])=>{ if(typeof p.x!=='number')return; const pp=pinPos(id,p); any=true; if(pp.x<minx)minx=pp.x;if(pp.y<miny)miny=pp.y;if(pp.x>maxx)maxx=pp.x;if(pp.y>maxy)maxy=pp.y; });
   if(!any){ M.view={tx:M.plan.ox,ty:M.plan.oy,s:1,init:true}; repaint(); return; }
-  const pad=0.04; minx-=pad;miny-=pad;maxx+=pad;maxy+=pad;
-  const bw=Math.max(1,(maxx-minx)*M.plan.pw), bh=Math.max(1,(maxy-miny)*M.plan.ph), m=18;
+  const pad=0.02; minx-=pad;miny-=pad;maxx+=pad;maxy+=pad;
+  const bw=Math.max(1,(maxx-minx)*M.plan.pw), bh=Math.max(1,(maxy-miny)*M.plan.ph), m=14;
   const s=clampS(Math.min((M.box.w-2*m)/bw,(M.box.h-2*m)/bh));
   const cx=(minx+maxx)/2, cy=(miny+maxy)/2;
   M.view={ s, tx:M.box.w/2-cx*M.plan.pw*s, ty:M.box.h/2-cy*M.plan.ph*s, init:true }; repaint(); }
 const clampS=s=>Math.max(.4,Math.min(8,s));
-function zoomAt(px,py,f){ const ns=clampS(M.view.s*f),k=ns/M.view.s; M.view.s=ns;M.view.tx=px-(px-M.view.tx)*k;M.view.ty=py-(py-M.view.ty)*k; repaint(); }
+function zoomAt(px,py,f){ M.userView=true; const ns=clampS(M.view.s*f),k=ns/M.view.s; M.view.s=ns;M.view.tx=px-(px-M.view.tx)*k;M.view.ty=py-(py-M.view.ty)*k; repaint(); }
 function toggleNote(){ M.tool=M.tool==='note'?'pan':'note'; const b=document.getElementById('noteBtn'); if(b)b.style.background=M.tool==='note'?'rgba(139,92,246,.22)':''; if(_cv)_cv.style.cursor=M.tool==='note'?'crosshair':'grab'; }
 window.setColorMode=setColorMode; window.setSeq=setSeq; window.toggleLayer=toggleLayer; window.hovPour=hovPour; window.isoPour=isoPour; window.zoomBtn=zoomBtn; window.fitMap=fitMap; window.toggleNote=toggleNote;
 // Bluebeam-style tool modes: Pan (V) = scroll pans · Zoom (Z) = scroll zooms · pinch/ctrl always zooms
@@ -815,7 +815,7 @@ function hitTest(px,py){
 function pointInPoly(x,y,pts){ let c=false; for(let i=0,j=pts.length-1;i<pts.length;j=i++){const[xi,yi]=pts[i],[xj,yj]=pts[j];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/((yj-yi)||1e-9)+xi))c=!c;} return c; }
 function wireMap(){ const el=_cv;
   // Pan tool (default): scroll pans. Zoom tool / pinch / ctrl: scroll zooms. (Bluebeam-style)
-  el.addEventListener('wheel',e=>{ e.preventDefault(); const r=el.getBoundingClientRect();
+  el.addEventListener('wheel',e=>{ e.preventDefault(); M.userView=true; const r=el.getBoundingClientRect();
     if(e.ctrlKey || M.scrollMode==='zoom'){ const dy=Math.max(-120,Math.min(120,e.deltaY)); zoomAt(e.clientX-r.left,e.clientY-r.top,Math.exp(-dy*0.0012)); }
     else { M.view.tx-=e.deltaX; M.view.ty-=e.deltaY; repaint(); } },{passive:false});
   el.addEventListener('mousedown',e=>{ if(e.button===1)e.preventDefault(); }); // stop middle-click autoscroll
@@ -825,7 +825,7 @@ function wireMap(){ const el=_cv;
     const hit=hitTest(x,y); if(hit){M.sel=hit;repaint();openDetail(hit);return;}
     el.setPointerCapture(e.pointerId);el.style.cursor='grabbing';M.drag={x,y,tx:M.view.tx,ty:M.view.ty,moved:false};});
   el.addEventListener('pointermove',e=>{const r=el.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
-    if(M.drag){M.view.tx=M.drag.tx+(x-M.drag.x);M.view.ty=M.drag.ty+(y-M.drag.y);M.drag.moved=true;repaint();return;}
+    if(M.drag){M.userView=true;M.view.tx=M.drag.tx+(x-M.drag.x);M.view.ty=M.drag.ty+(y-M.drag.y);M.drag.moved=true;repaint();return;}
     const hit=hitTest(x,y);
     if(hit&&hit.kind==='foot'){ M.hovPour=null; if(M.hovFoot!==hit.id){M.hovFoot=hit.id;showHovCard(hit.data,x,y);repaint();} }
     else if(hit&&hit.kind==='pour'){ M.hovFoot=null; if(M.hovPour!==hit.id){M.hovPour=hit.id;repaint();} showPourTip(hit.data,x,y); }
@@ -1176,7 +1176,7 @@ function ganttHTML(p){
   const canEdit=canView('scheduleEdit'); const src=curSchedSrc(); const cos=schedCompanies(); const collapsed=STATE.schedCollapsed||{}; const LEFTW=360; const lcols=`1fr 44px 104px${canEdit?' 26px':''}`;
   const tasks=Object.entries(p.tasks||{}).map(([tid,t])=>Object.assign({id:tid},t)); const secs=Object.entries(p.sections||{}).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
   const starts=tasks.map(t=>t.start).filter(Boolean).sort(); const anchor=starts[0]||p.startDate||new Date().toISOString().slice(0,10);
-  const anchorD=new Date(anchor+'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0);
+  const anchorD=new Date(anchor+'T00:00:00'); anchorD.setDate(anchorD.getDate()-3); /* lead-in so the first bars aren't flush against the task column */ const today=new Date(); today.setHours(0,0,0,0);
   const lastEnd=tasks.reduce((mx,t)=>{const s=t.start?new Date(t.start+'T00:00:00'):anchorD;const e=new Date(s);e.setDate(e.getDate()+(t.days||1)+2);return e>mx?e:mx;},anchorD);
   const N=Math.max(42,Math.min(180,Math.ceil((lastEnd-anchorD)/864e5)+4)); const cellW=30,rowH=34,wkl=['S','M','T','W','T','F','S'];
   const dayIdx=d=>Math.round((new Date(d+'T00:00:00')-anchorD)/864e5);

@@ -19,7 +19,7 @@
         ".read": "auth != null",
         "$id": {
           ".write": "auth != null && root.child('command-center/users/'+auth.uid+'/role').val().matches(/^(Admin|PM|PE)$/)",
-          ".validate": "newData.hasChildren(['x','y']) || !newData.exists()"
+          ".validate": "!newData.exists() || newData.hasChild('number') || newData.hasChildren(['x','y'])"
         }
       },
 

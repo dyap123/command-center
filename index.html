@@ -29,20 +29,23 @@
   @keyframes oyPopUp{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:translateY(0)}}
   @keyframes oyFade{from{opacity:0}to{opacity:1}}
   @keyframes oyShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
-  @keyframes oyDrift1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(46px,-36px) scale(1.16)}}
-  @keyframes oyDrift2{0%,100%{transform:translate(0,0) scale(1.08)}50%{transform:translate(-54px,42px) scale(.92)}}
-  @keyframes oyDrift3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(34px,50px) scale(1.18)}}
+  /* translate-only drift: a blurred layer can be moved cheaply, but animating scale() forces it to re-rasterize every frame — brutal on weak GPUs. */
+  @keyframes oyDrift1{0%,100%{transform:translate(0,0)}50%{transform:translate(46px,-36px)}}
+  @keyframes oyDrift2{0%,100%{transform:translate(0,0)}50%{transform:translate(-54px,42px)}}
+  @keyframes oyDrift3{0%,100%{transform:translate(0,0)}50%{transform:translate(34px,50px)}}
   @keyframes oyZoomBlur{to{opacity:0;transform:scale(1.12);filter:blur(9px)}}
   @keyframes oyZoomIn{from{opacity:0;transform:scale(.985)}to{opacity:1;transform:scale(1)}}
   @keyframes oyFlash{0%{opacity:0;transform:scale(.55)}45%{opacity:.85}100%{opacity:0;transform:scale(1.7)}}
   #dotgrid{position:fixed;inset:0;background-image:radial-gradient(rgba(255,255,255,.028) 1px,transparent 1px);background-size:26px 26px;pointer-events:none;opacity:.6;z-index:0}
-  .aurora{position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none;will-change:transform;opacity:.5}
+  .aurora{position:absolute;border-radius:50%;filter:blur(34px);pointer-events:none;will-change:transform;transform:translateZ(0);opacity:.5}
   .loginFx{position:fixed;inset:0;z-index:60;pointer-events:none;background:radial-gradient(circle at 50% 46%,rgba(139,92,246,.5),rgba(59,130,246,.22) 32%,transparent 62%);animation:oyFlash .6s ease forwards}
+  /* Honor OS "reduce motion": stop the heavy infinite blur loops + login flash for a static, low-power login. */
+  @media (prefers-reduced-motion: reduce){ .aurora{animation:none!important} .loginFx{animation:none!important;opacity:0} }
   .modchip{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:9px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-size:11.5px;color:#C7CDD6}
   .login-hero{flex:1;min-width:300px;max-width:430px;animation:oyUp .6s ease both}
   .login-brand-mobile{display:none}
   @media(max-width:820px){ .login-hero{display:none} .login-brand-mobile{display:flex!important} }
-  .rolecard{cursor:pointer;display:flex;flex-direction:column;min-height:214px;padding:22px;border-radius:17px;background:linear-gradient(160deg,rgba(255,255,255,.055),rgba(255,255,255,.018));border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(14px);transition:transform .24s cubic-bezier(.2,.7,.3,1),border-color .24s ease,box-shadow .24s ease}
+  .rolecard{cursor:pointer;display:flex;flex-direction:column;min-height:214px;padding:22px;border-radius:17px;background:linear-gradient(160deg,rgba(255,255,255,.055),rgba(255,255,255,.018));border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(7px);transition:transform .24s cubic-bezier(.2,.7,.3,1),border-color .24s ease,box-shadow .24s ease}
   .rolecard:hover{transform:translateY(-7px);border-color:var(--ac);box-shadow:0 22px 55px rgba(0,0,0,.5),0 0 0 1px var(--ac),0 18px 46px -14px var(--ac)}
   .roleic{width:54px;height:54px;border-radius:15px;display:flex;align-items:center;justify-content:center;transition:transform .24s cubic-bezier(.2,.7,.3,1)}
   .rolecard:hover .roleic{transform:scale(1.08) rotate(-3deg)}
@@ -156,11 +159,38 @@ const CAP={
 let EDIT_LOCKED=true;
 function can(cap){ if(EDIT_LOCKED&&cap!=='adminUsers')return false; return (CAP[cap]||[]).includes(realRoleKey()); }
 function canView(cap){ if(EDIT_LOCKED&&cap!=='adminUsers')return false; return (CAP[cap]||[]).includes(activeRole()); }
-function toggleLock(){ if(EDIT_LOCKED){ const pin=prompt('Enter PIN to UNLOCK editing (your edits then sync across the OpenYap apps):'); if(pin==null)return;
-    if(pin==='050103'){ EDIT_LOCKED=false; toast('Editing unlocked','ok'); } else { toast('Wrong PIN — still locked','err'); return; } }
-  else { EDIT_LOCKED=true; toast('Editing locked','ok'); }
-  renderTopbar(); if(STATE.screen==='app'){ renderRail(); renderBody(); } }
+function toggleLock(){ if(EDIT_LOCKED){ openUnlockModal(); return; }
+  EDIT_LOCKED=true; toast('Editing locked','ok'); renderTopbar(); if(STATE.screen==='app'){ renderRail(); renderBody(); } }
 window.toggleLock=toggleLock;
+/* Nice PIN pad to unlock editing — mirrors the login PIN card (replaces the old prompt()). */
+let _unlockPin='';
+function unlockDotsHTML(){ const n=_unlockPin.length; return Array.from({length:PIN_LEN},(_,i)=>`<div style="width:12px;height:12px;border-radius:50%;border:1px solid ${i<n?'transparent':'rgba(255,255,255,.2)'};background:${i<n?'linear-gradient(135deg,#8B5CF6,#D946EF)':'transparent'};transition:.15s"></div>`).join(''); }
+function openUnlockModal(){ _unlockPin=''; const keys=['1','2','3','4','5','6','7','8','9','','0','back'];
+  const pad=keys.map(k=>k===''?`<div></div>`:`<div onclick="unlockTap('${k}')" class="mono" style="text-align:center;padding:14px 0;font-size:17px;font-weight:600;border-radius:11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);cursor:pointer;color:${k==='back'?'#7A8290':'#E6E9EF'};user-select:none">${k==='back'?'⌫':k}</div>`).join('');
+  openModal(`<div id="unlockCard" style="text-align:center">
+    <div style="width:46px;height:46px;margin:0 auto 12px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:rgba(139,92,246,.16);border:1px solid rgba(139,92,246,.34)"><span class="ms" style="font-size:24px;color:#C9BBFF">lock_open</span></div>
+    <div style="font-size:16px;font-weight:650">Unlock editing</div>
+    <div style="font-size:12px;color:#7A8290;margin:5px 0 16px">Enter the PIN — your edits then sync across the OpenYap apps.</div>
+    <div id="unlockDots" style="display:flex;gap:11px;justify-content:center;margin-bottom:18px">${unlockDotsHTML()}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:250px;margin:0 auto">${pad}</div>
+    <div style="font-size:10.5px;color:#5B636F;margin-top:13px">Type on your keyboard or tap the pad</div>
+    <button class="btn" style="margin-top:14px" onclick="closeUnlock()">Cancel</button></div>`);
+  document.removeEventListener('keydown',unlockKey,true); document.addEventListener('keydown',unlockKey,true); }
+window.openUnlockModal=openUnlockModal;
+function unlockTap(k){ if(!document.getElementById('unlockDots'))return;
+  if(k==='back'){ _unlockPin=_unlockPin.slice(0,-1); } else if(_unlockPin.length<PIN_LEN){ _unlockPin+=k; }
+  document.getElementById('unlockDots').innerHTML=unlockDotsHTML();
+  if(_unlockPin.length===PIN_LEN) setTimeout(submitUnlock,140); }
+window.unlockTap=unlockTap;
+function submitUnlock(){ if(_unlockPin===PREVIEW_PIN){ EDIT_LOCKED=false; closeUnlock(); toast('Editing unlocked','ok'); renderTopbar(); if(STATE.screen==='app'){ renderRail(); renderBody(); } const cb=_afterUnlock; _afterUnlock=null; if(cb)setTimeout(cb,60); }
+  else { _unlockPin=''; const c=document.getElementById('unlockCard'); if(c){ c.style.animation='oyShake .4s'; setTimeout(()=>{ if(c)c.style.animation=''; },420); } const d=document.getElementById('unlockDots'); if(d)d.innerHTML=unlockDotsHTML(); toast('Wrong PIN','err'); } }
+function closeUnlock(){ document.removeEventListener('keydown',unlockKey,true); closeModal(); }
+window.closeUnlock=closeUnlock;
+function unlockKey(e){ const m=document.getElementById('modal'); if(!m||!m.classList.contains('open')||!document.getElementById('unlockDots')){ document.removeEventListener('keydown',unlockKey,true); return; }
+  e.stopPropagation();   // swallow app shortcuts (e.g. 'l') while the PIN pad is open
+  if(e.key>='0'&&e.key<='9'){ e.preventDefault(); unlockTap(e.key); }
+  else if(e.key==='Backspace'){ e.preventDefault(); unlockTap('back'); }
+  else if(e.key==='Escape'){ e.preventDefault(); closeUnlock(); } }
 function navLocked(key){ return (LOCKS[activeRole()]||[]).includes(key); }
 
 /* ---- GLOBAL STATE --------------------------------------------------------- */
@@ -238,7 +268,7 @@ function startLegacySync(){ if(_legacy)return; _legacy=true;
   fetch(DBURL+'/foreman-attendance/attendance.json?shallow=true').then(r=>r.json()).then(d=>{ DATA.att.dates=Object.keys(d||{}).sort().reverse(); DATA.att.date=DATA.att.dates[0]||''; DATA.att.loaded=true; if(DATA.att.date) loadAttDay(DATA.att.date); else softUpdate(); }).catch(()=>{ DATA.att.loaded=true; });
 }
 function startCCSync(){ if(_cc)return; _cc=true;
-  ccListen('rfi',v=>{ DATA.rfi=v||{}; if(onMap()){renderRfiTray();renderLayerPanel();repaint();} if(STATE.activeTab==='rfis')renderBody(); });
+  ccListen('rfi',v=>{ DATA.rfi=v||{}; buildFootRFI(); if(onMap()){renderRfiTray();renderLayerPanel();repaint();} if(STATE.activeTab==='rfis')renderBody(); });
   ccListen('markups',v=>{ DATA.markups=v||{}; if(onMap()){renderLayerPanel();repaint();} });
   ccListen('inspections',v=>{ DATA.inspections=v||{}; if(onMap())repaint(); if(STATE.activeTab==='inspections')renderBody(); });
   ccListen('mapCalib',v=>{ if(v){ DATA.calib=Object.assign({dx:0,dy:0,sx:1,sy:1},v); M.calib=DATA.calib; if(M.base){buildPinSnap(); if(onMap())repaint();} } });
@@ -303,7 +333,7 @@ function renderLogin(){
     if(STATE.authStep==='pin'){
       const keys=['1','2','3','4','5','6','7','8','9','','0','back'];
       const pad=keys.map(k=>k===''?`<div style="visibility:hidden"></div>`:`<div onclick="pinTap('${k}')" class="mono" style="text-align:center;padding:14px 0;font-size:17px;font-weight:600;border-radius:11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);cursor:pointer;color:${k==='back'?'#7A8290':'#E6E9EF'}">${k==='back'?'⌫':k}</div>`).join('');
-      inner=`<div id="pinCard" class="card" style="backdrop-filter:blur(20px);border-radius:18px;padding:26px;box-shadow:0 30px 80px rgba(0,0,0,.5);animation:oyUp .3s ease">
+      inner=`<div id="pinCard" class="card" style="backdrop-filter:blur(10px);border-radius:18px;padding:26px;box-shadow:0 30px 80px rgba(0,0,0,.5);animation:oyUp .3s ease">
         <div style="display:flex;align-items:center;gap:11px;margin-bottom:18px">
           <div style="width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:${hexA(pr.accent,.14)}"><span class="ms" style="font-size:20px;color:${pr.accent}">${pr.icon}</span></div>
           <div><div style="font-size:14px;font-weight:650">${pr.name}</div><div style="font-size:11px;color:#7A8290">${pr.gate}</div></div></div>
@@ -312,7 +342,7 @@ function renderLogin(){
         <div style="text-align:center;margin-top:14px;font-size:10.5px;color:#5B636F">Type on your keyboard or tap the pad</div>
         <div onclick="setS({authStep:'roles',pinEntry:''});render()" style="text-align:center;margin-top:10px;font-size:12px;color:#7A8290;cursor:pointer">← Back to roles</div></div>`;
     } else if(STATE.authStep==='signin'){
-      inner=`<div class="card" style="backdrop-filter:blur(20px);border-radius:18px;padding:26px;box-shadow:0 30px 80px rgba(0,0,0,.5);animation:oyUp .3s ease">
+      inner=`<div class="card" style="backdrop-filter:blur(10px);border-radius:18px;padding:26px;box-shadow:0 30px 80px rgba(0,0,0,.5);animation:oyUp .3s ease">
         <div style="font-size:15px;font-weight:600;margin-bottom:4px">Sign in</div>
         <div style="font-size:12.5px;color:#7A8290;margin-bottom:16px">Your role &amp; permissions load from your account.</div>
         <button class="btn" style="width:100%;background:#fff;color:#1a1a1a;margin-bottom:14px" onclick="doGoogle()"><span class="ms" style="font-size:16px">login</span> Continue with Google</button>
@@ -428,7 +458,7 @@ function switchRole(k){ if(AUTH_OK && realRoleKey()!=='admin'){ setS({roleMenuOp
   setS({viewRole:k,pendingRole:k,roleMenuOpen:false,schedView:null}); renderRail(); renderTopbar();
   if(navLocked(STATE.activeTab)) go('map'); else renderBody(); }
 window.toggleRoleMenu=toggleRoleMenu; window.switchRole=switchRole;
-function go(tab){ if(navLocked(tab))return; setS({activeTab:tab,roleMenuOpen:false}); M.sel=null; renderRail(); renderTopbar(); renderBody(); }
+function go(tab){ if(navLocked(tab))return; if(tab!=='map'&&M.regionDraw){M.regionDraw=null;const b=document.getElementById('regionBar');if(b)b.remove();} setS({activeTab:tab,roleMenuOpen:false}); M.sel=null; renderRail(); renderTopbar(); renderBody(); }
 window.go=go;
 /* ---- context-aware top search (filters [data-search] rows in the active tab) ---- */
 const SEARCH_TABS={schedule:'Find a task…',tools:'Search inventory…',rfis:'Search RFIs…',pours:'Find a pour…',attendance:'Search crew…',submittals:'Search submittals…'};
@@ -544,6 +574,30 @@ function embWorld(px,py){ const e=M.emb; if(!e) return {x:px*(M.planW||1),y:py*(
   const fx=(u-e.nx0)/(e.nx1-e.nx0), fy=(v-e.ny0)/(e.ny1-e.ny0);
   return { x:e.wx0+fx*(e.wx1-e.wx0), y:e.wy0+fy*(e.wy1-e.wy0) }; }
 const TYPECOL=t=>{t=String(t).toUpperCase();if(t.indexOf('MPC')===0)return'#F59E0B';if(t.indexOf('PC')===0)return'#8B5CF6';if(t[0]==='F')return'#22C55E';if(t.indexOf('GB')===0)return'#566072';return'#566072';};
+/* RFI "applies to" footing scope — families + individual type codes (or all). Mirrors TYPECOL's prefix logic. */
+const FOOT_FAMILIES=[['MPC','Micro-pile caps'],['PC','Pile caps'],['F','Footings'],['GB','Grade beams'],['WF','Wall footings']];
+function familyOf(t){ t=String(t||'').toUpperCase(); if(t.indexOf('MPC')===0)return'MPC'; if(t.indexOf('PC')===0)return'PC'; if(t.indexOf('GB')===0)return'GB'; if(t.indexOf('WF')===0)return'WF'; if(t[0]==='F')return'F'; return'F'; }
+function footingTypeIndex(){ const fam={}; (M.footings||[]).forEach(f=>{ if(f.del)return; const t=String(f.type||'').toUpperCase(); (fam[familyOf(t)]=fam[familyOf(t)]||new Set()).add(t); });
+  const out={}; Object.keys(fam).forEach(g=>out[g]=Array.from(fam[g]).sort()); return out; }
+function rfiAppliesToFooting(rfi,f){ const a=rfi&&rfi.appliesTo; if(!a)return false; if(a.all)return true; const t=String(f.type||'').toUpperCase();
+  if(Array.isArray(a.families)&&a.families.includes(familyOf(t)))return true;
+  if(Array.isArray(a.codes)&&a.codes.includes(t))return true; return false; }
+// Precompute footingNo → [rfiIds] once per data change (mirrors buildPinSnap/_footEmb) so drawFootings stays cheap on every pan.
+let _footRFI={};
+function buildFootRFI(){ _footRFI={}; const list=Object.entries(DATA.rfi||{}).filter(([id,r])=>r&&r.appliesTo); if(!list.length||!M.footings)return;
+  for(const f of M.footings){ if(f.del)continue; for(const [id,r] of list){ if(rfiAppliesToFooting(r,f))(_footRFI[f.no]=_footRFI[f.no]||[]).push(id); } } }
+const RFI_CYAN='#22D3EE';   // RFI brand color — distinct from pilecap purple (#8B5CF6)
+function footRFITint(no){ const ids=_footRFI[no]; return (ids&&ids.length)?RFI_CYAN:null; }
+function rfiFootingsOf(r){ return (M.footings||[]).filter(f=>!f.del&&!f.isBeam&&rfiAppliesToFooting(r,f)); }
+// World-space polygon for an RFI's area: its drawn region if any, else a hull around its assigned footings (like a pour).
+function rfiWorldPoly(r){
+  if(Array.isArray(r.region)){ const w=r.region.filter(p=>Array.isArray(p)&&p.length>=2&&isFinite(p[0])&&isFinite(p[1])).map(p=>[p[0]*M.planW,p[1]*M.planH]); if(w.length>=3)return w; }
+  const mem=rfiFootingsOf(r); if(!mem.length)return null;
+  if(mem.length<3){ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; mem.forEach(f=>{x0=Math.min(x0,f.cx-f.w/2);y0=Math.min(y0,f.cy-f.h/2);x1=Math.max(x1,f.cx+f.w/2);y1=Math.max(y1,f.cy+f.h/2);}); return [[x0-18,y0-18],[x1+18,y0-18],[x1+18,y1+18],[x0-18,y1+18]]; }
+  try{ return convexHull(mem.map(f=>[f.cx,f.cy]),26); }catch(_){ return null; } }
+// RFI edits require unlocked editing — if locked, pop the PIN pad AND remember the action so it resumes after unlock.
+let _afterUnlock=null;
+function requireRfiEdit(retry){ if(can('rfiEdit'))return true; if(EDIT_LOCKED){ _afterUnlock=(typeof retry==='function')?retry:null; toast('Unlock editing first — then it’ll continue','info'); openUnlockModal(); } else toast('Your role can’t edit RFIs','warn'); return false; }
 const SEQPAL=['#22C55E','#06B6D4','#A855F7','#8B5CF6','#EC4899','#3B82F6','#14B8A6','#F59E0B','#EAB308','#0EA5E9'];
 const PIN_COL={installed:'#22C55E',todo:'#EF4444',next:'#F59E0B'};
 const INSP_COL={'':'#6b7691',READY:'#F59E0B',PASS:'#22C55E',FAIL:'#EF4444'};
@@ -552,7 +606,7 @@ const INSP_STAGES=['','READY','PASS','FAIL'], INSP_LABEL={'':'Not started',READY
 const M={ layers:{footings:true,embeds:true,pours:true,rfi:true,markups:true,grid:true},
   view:{tx:0,ty:0,s:1,base:1,init:false}, box:{w:1000,h:700},
   footings:[], byNo:{}, base:null, ox:0, oy:0, planW:0, planH:0, gridCols:[], gridRows:[], emb:null, calib:{dx:0,dy:0,sx:1,sy:1},
-  sel:null, hovFoot:null, hovPour:null, selPour:null, tool:'pan', scrollMode:'pan', dockOpen:true, colorMode:'status', seqFilter:'ALL', calibMode:false, snapEmbeds:true, userView:false, drag:null };
+  sel:null, hovFoot:null, hovPour:null, selPour:null, tool:'pan', scrollMode:'pan', dockOpen:true, colorMode:'status', seqFilter:'ALL', calibMode:false, snapEmbeds:true, userView:false, drag:null, regionDraw:null };
 
 function sideFt(t){ t=String(t).toUpperCase(); const F={F6:5,F6A:5,F7:5.5,F7A:6,F8:6.5,F8A:7,F9:7.5,F10:8,F10A:8.5,F11:9,F12:9.5,F12B:10,F12C:10,F14:11,F201:6,F202:6};
   if(F[t]!=null)return F[t]; if(t.indexOf('MPC')===0){const n=parseInt(t.replace(/\D/g,''))||6;return n>=18?26:(n>=8?22:(n>=6?20:18));}
@@ -581,7 +635,7 @@ function buildFootings(){ if(!M.base)return; const E=DATA.footEdits||{};
     if(f.isBeam&&b.beam&&(e.cx!=null||e.cy!=null)){const dx=f.cx-b.cx,dy=f.cy-b.cy;f.beam={x1:b.beam.x1+dx,y1:b.beam.y1+dy,x2:b.beam.x2+dx,y2:b.beam.y2+dy,horizontal:b.beam.horizontal};}}recompFoot(f);return f;});
   Object.keys(E).forEach(kk=>{const e=E[kk];if(!e||!e.added)return;const f={no:+kk,type:e.type||'F8',tag:'#'+kk,thk:+e.thk||30,cx:+e.cx||M.planW/2,cy:+e.cy||M.planH/2,wFt:+e.wFt||6,lFt:+e.lFt||6,added:true,del:!!e.deleted,isBeam:false};recompFoot(f);arr.push(f);});
   M.footings=arr;M.byNo={};arr.forEach(f=>M.byNo[f.no]=f);
-  buildPinSnap(); if(onMap()){ if(!M.userView&&M.footings.length)fitMap(); else repaint(); } }
+  buildPinSnap(); buildFootRFI(); if(onMap()){ if(!M.userView&&M.footings.length)fitMap(); else repaint(); } }
 /* Snap embeds onto their nearest footing for the main map only (EmbedYap data untouched).
    Anchor bolts live in footings, so we pull each pin to the closest footing and fan
    multiple pins out within that footing's box so they stay distinguishable. */
@@ -684,7 +738,7 @@ function renderMap(b){
   const r=wrap.getBoundingClientRect(); M.box={w:r.width,h:r.height}; fitMap();
 }
 function renderLayerPanel(){ const host=document.getElementById('layerpanel'); if(!host)return;
-  const rows=[['footings','#22C55E',M.footings.filter(f=>!f.del).length,'Footings'],['embeds','#3B82F6',Object.keys(DATA.pins).length,'Embeds'],['pours','#A855F7',Object.values(_poursCache).length,'Pours'],['rfi','#8B5CF6',Object.keys(DATA.rfi).length,'RFI pins'],['markups','#F59E0B',Object.keys(DATA.markups).length,'Markups'],['grid','#566072',(M.gridCols||[]).length+'×'+(M.gridRows||[]).length,'Grid']];
+  const rows=[['footings','#22C55E',M.footings.filter(f=>!f.del).length,'Footings'],['embeds','#3B82F6',Object.keys(DATA.pins).length,'Embeds'],['pours','#A855F7',Object.values(_poursCache).length,'Pours'],['rfi',RFI_CYAN,Object.keys(DATA.rfi).length,'RFIs'],['markups','#F59E0B',Object.keys(DATA.markups).length,'Markups'],['grid','#566072',(M.gridCols||[]).length+'×'+(M.gridRows||[]).length,'Grid']];
   host.innerHTML=`<div class="mono" style="font-size:10px;color:#5B636F;letter-spacing:1px;margin-bottom:9px">LAYERS</div>`+rows.map(([k,c,n,l])=>{const on=M.layers[k];return `<div onclick="toggleLayer('${k}')" style="display:flex;align-items:center;gap:10px;padding:6px;border-radius:9px;cursor:pointer;background:${on?'rgba(255,255,255,.03)':'transparent'}">
     <span style="width:10px;height:10px;border-radius:3px;background:${c};box-shadow:0 0 8px ${hexA(c,.6)}"></span>
     <span style="flex:1;font-size:12px;font-weight:${on?600:400};color:${on?'#E6E9EF':'#6B7280'}">${l}</span>
@@ -713,8 +767,8 @@ function renderDock(){ const dock=document.getElementById('dock'); if(!dock)retu
         <span style="font-size:8.5px;font-weight:700;letter-spacing:.4px;color:${c}">${POURLBL[p.status]||p.status}</span></div>`;}).join(''):'<div style="color:#5B636F;font-size:11px;padding:8px">No pours yet.</div>'}
     </div>
     <div style="border-top:1px solid rgba(255,255,255,.06);padding:13px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span class="mono" style="font-size:9.5px;color:#5B636F;letter-spacing:1px">RFI TRAY</span><span class="ms" style="font-size:14px;color:#5B636F">drag_indicator</span></div>
-      <div style="font-size:10px;color:#7A8290;margin-bottom:9px">Drag a chip onto the plan — or click a chip, then click the plan.${can('rfiEdit')?'':' Press <b>L</b> to unlock editing first.'} Drag the tray's bottom edge ↕ to resize.</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span class="mono" style="font-size:9.5px;color:#5B636F;letter-spacing:1px">DRIVE RFIs</span><span class="ms" style="font-size:14px;color:#5B636F">help</span></div>
+      <div style="font-size:10px;color:#7A8290;margin-bottom:9px">Click a chip to assign it to footings / draw its region.${can('rfiEdit')?'':' Press <b>L</b> to unlock editing first.'} Drag the bottom edge ↕ to resize.</div>
       <div id="rfitray" style="display:flex;flex-direction:column;gap:7px;height:220px;min-height:80px;max-height:62vh;overflow:auto;resize:vertical"></div>
       ${can('rfiEdit')?`<button class="ghostbtn" style="width:100%;justify-content:center;margin-top:8px" onclick="addRfiManual()"><span class="ms" style="font-size:15px">add</span> Add RFI manually</button>`:''}
     </div>`;
@@ -726,18 +780,72 @@ function renderRfiTray(){ const host=document.getElementById('rfitray'); if(!hos
   const placed=new Set(Object.values(DATA.rfi).map(r=>r.number)); const avail=RFI_DRIVE.filter(r=>!placed.has(r.number));
   if(!avail.length){ host.innerHTML=`<div style="text-align:center;padding:12px;font-size:11px;color:#5B636F">${RFI_DRIVE.length?'All RFIs pinned ✓':(/^https/.test(RFI_API_URL)?'Loading…':'Connect the RFI Apps Script to auto-list.')}</div>`; return; }
   const pill=s=>{const c=s==='Open'?'#EF4444':s==='Answered'?'#F59E0B':'#3B82F6';return `font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:2px 6px;border-radius:5px;color:${c};background:${hexA(c,.14)}`;};
-  host.innerHTML=avail.slice(0,40).map((r,i)=>`<div draggable="true" ondragstart="rfiDrag(event,${i})" ondragend="window.__dragRfi=null" onclick="rfiArm(${i})" title="Drag onto the plan, or click then click the plan" style="display:flex;align-items:center;gap:9px;padding:8px 9px;background:${M.armRfi&&M.armRfi.number===r.number?'rgba(139,92,246,.18)':'rgba(255,255,255,.04)'};border:1px solid ${M.armRfi&&M.armRfi.number===r.number?'rgba(139,92,246,.5)':'rgba(255,255,255,.09)'};border-radius:9px;cursor:grab">
+  host.innerHTML=avail.slice(0,40).map((r,i)=>`<div onpointerdown="rfiChipDown(event,${i})" title="Drag onto the plan to draw its region — or click to set footings" style="display:flex;align-items:center;gap:9px;padding:8px 9px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:9px;cursor:grab;user-select:none;touch-action:none">
     <span class="ms" style="font-size:14px;color:#7A8290">drag_indicator</span>
     <div style="flex:1;min-width:0"><div class="mono" style="font-size:11px;font-weight:650;color:#C9BBFF">${esc(r.number)}</div><div style="font-size:10px;color:#9AA3B0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.title||'')}</div></div>
     <span style="${pill(r.status)}">${esc(r.status||'')}</span></div>`).join('');
 }
 function rfiAvail(){ const placed=new Set(Object.values(DATA.rfi).map(r=>r.number)); return RFI_DRIVE.filter(r=>!placed.has(r.number)); }
-// HTML5 drag: set dataTransfer so the drop event actually fires (Chrome/Firefox need it).
-window.rfiDrag=function(e,i){ const rfi=rfiAvail()[i]; if(!rfi)return; window.__dragRfi=rfi; M.armRfi=null; if(e&&e.dataTransfer){try{e.dataTransfer.setData('text/plain',rfi.number||'RFI');e.dataTransfer.effectAllowed='copy';}catch(_){}}};
-// Click-to-place fallback (reliable + touch-friendly): click a chip to arm, then click the plan.
-window.rfiArm=function(i){ const rfi=rfiAvail()[i]; if(!rfi)return; if(!can('rfiEdit'))return toast('Editing is locked — press L and enter the PIN to place RFIs','warn');
-  M.armRfi=(M.armRfi&&M.armRfi.number===rfi.number)?null:rfi; if(_cv)_cv.style.cursor=M.armRfi?'crosshair':'grab'; if(onMap())renderRfiTray();
-  if(M.armRfi)toast('Now click on the plan to drop '+(rfi.number||'RFI'),'info'); };
+// Tray chip: DRAG onto the plan → create the RFI + start drawing its region (seeded at the drop point).
+// CLICK (no drag) → open the assign/settings modal. Pointer capture keeps the drag reliable over the canvas.
+let _chipDrag=null;
+window.rfiChipDown=function(e,i){ const rfi=rfiAvail()[i]; if(!rfi)return; e.preventDefault(); const el=e.currentTarget||e.target;
+  _chipDrag={i,rfi,sx:e.clientX,sy:e.clientY,moved:false,ghost:null,el,pid:e.pointerId};
+  try{el.setPointerCapture(e.pointerId);}catch(_){}
+  el.onpointermove=rfiChipMove; el.onpointerup=rfiChipUp; el.onpointercancel=rfiChipUp; };
+function rfiChipMove(e){ const d=_chipDrag; if(!d)return;
+  if(!d.moved){ if(Math.hypot(e.clientX-d.sx,e.clientY-d.sy)<5)return; d.moved=true; const g=document.createElement('div'); g.textContent=d.rfi.number||'RFI'; g.style.cssText='position:fixed;z-index:99999;pointer-events:none;padding:5px 11px;border-radius:8px;background:'+RFI_CYAN+';color:#06222B;font:700 11px/1 Inter,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.55)'; document.body.appendChild(g); d.ghost=g; }
+  if(d.ghost){d.ghost.style.left=(e.clientX+13)+'px';d.ghost.style.top=(e.clientY+13)+'px';}
+  if(_cv){const r=_cv.getBoundingClientRect(),over=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;_cv.style.outline=over?'2px dashed '+RFI_CYAN:'';_cv.style.outlineOffset='-2px';} }
+function rfiChipUp(e){ const d=_chipDrag; _chipDrag=null; if(!d)return; if(d.ghost)d.ghost.remove(); if(_cv)_cv.style.outline='';
+  try{d.el.releasePointerCapture(d.pid);}catch(_){} d.el.onpointermove=null;d.el.onpointerup=null;d.el.onpointercancel=null;
+  let overMap=false; if(_cv){const r=_cv.getBoundingClientRect();overMap=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;}
+  if(d.moved&&overMap){ _cvRect=null; const r=cvRect(); const f=toFrac(e.clientX-r.left,e.clientY-r.top); createRfiAndDraw(d.rfi,[+f.fx.toFixed(4),+f.fy.toFixed(4)]); }
+  else assignDriveRfi(d.i); }
+function createRfiAndDraw(rfi,firstPt){ if(!requireRfiEdit(()=>createRfiAndDraw(rfi,firstPt)))return; const id=ccPush('rfi',null).key;
+  const rec={number:rfi.number||'RFI',title:rfi.title||'',status:rfi.status||'Open',viewUrl:rfi.viewUrl||'',cover:rfi.cover||null,appliesTo:{all:false,families:[],codes:[]},by:ME.name||ME.email,at:Date.now()};
+  DATA.rfi[id]=rec; if(onMap()){renderRfiTray();renderLayerPanel();} ccSet('rfi/'+id,rec).catch(e=>toast(e.message,'err'));
+  startRegionDraw(id); if(firstPt&&M.regionDraw){ M.regionDraw.pts.push(firstPt); const c=document.getElementById('regionPtCount'); if(c)c.textContent='1'; repaint(); } }
+window.createRfiAndDraw=createRfiAndDraw;
+/* ---- RFI region drawing (polygon) — the user outlines an area on the plan ---- */
+function startRegionDraw(id){ if(!requireRfiEdit(()=>startRegionDraw(id)))return; const r=DATA.rfi[id]; if(!r)return;
+  closeModal(); closeDetail(); M.sel=null; M.regionDraw={id,num:r.number||'RFI',pts:(Array.isArray(r.region)?r.region.slice():[]),cur:null};
+  if(STATE.activeTab!=='map')go('map'); if(_cv)_cv.style.cursor='crosshair'; renderRegionBar(); repaint();
+  toast('Drag a box, or click corners for a polygon · Finish/double-click to close · ⌘Z undo · Esc cancel','info'); }
+window.startRegionDraw=startRegionDraw;
+function renderRegionBar(){ let bar=document.getElementById('regionBar'); if(!bar){ bar=document.createElement('div'); bar.id='regionBar'; document.body.appendChild(bar); }
+  const n=M.regionDraw?M.regionDraw.pts.length:0;
+  bar.style.cssText='position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:60;display:flex;gap:9px;align-items:center;background:rgba(16,20,26,.97);backdrop-filter:blur(10px);border:1px solid '+hexA(RFI_CYAN,.45)+';border-radius:13px;padding:9px 13px;box-shadow:0 18px 44px rgba(0,0,0,.55)';
+  bar.innerHTML=`<span class="ms" style="color:${RFI_CYAN};font-size:18px">gesture</span><span style="font-size:12px;color:#C7CDD6">Zone for <b style="color:${RFI_CYAN}">${esc(M.regionDraw?M.regionDraw.num:'')}</b> · <b>drag a box</b> or click corners · <span id="regionPtCount">${n}</span> pts</span>
+    <button class="ghostbtn" style="padding:5px 9px;font-size:11px" onclick="undoRegionPoint()"><span class="ms" style="font-size:14px">undo</span>Undo</button>
+    <button class="btn" style="padding:6px 11px" onclick="cancelRegionDraw()">Cancel</button>
+    <button class="btn primary grad" style="padding:6px 12px" onclick="finishRegionDraw()">Finish</button>`; }
+function removeRegionBar(){ const b=document.getElementById('regionBar'); if(b)b.remove(); }
+function undoRegionPoint(){ if(!M.regionDraw||!M.regionDraw.pts.length)return; M.regionDraw.pts.pop(); const c=document.getElementById('regionPtCount'); if(c)c.textContent=M.regionDraw.pts.length; repaint(); }
+window.undoRegionPoint=undoRegionPoint;
+function cancelRegionDraw(){ M.regionDraw=null; removeRegionBar(); if(_cv)_cv.style.cursor=''; repaint(); }
+window.cancelRegionDraw=cancelRegionDraw;
+function finishRegionDraw(){ const rd=M.regionDraw; if(!rd)return; let pts=rd.pts.slice();
+  if(pts.length===2){ const a=pts[0],b=pts[1]; pts=[[a[0],a[1]],[b[0],a[1]],[b[0],b[1]],[a[0],b[1]]]; }   // 2 corners → box
+  if(pts.length<3)return toast('Drop at least 2 points (a box) or 3+ for a polygon','warn');
+  const id=rd.id; M.regionDraw=null; removeRegionBar(); if(_cv)_cv.style.cursor='';
+  if(DATA.rfi[id])DATA.rfi[id].region=pts; M.sel={kind:'rfi',id,data:DATA.rfi[id]};
+  repaint(); openDetail(M.sel);   // keep the current view (drawn where you're looking) + show its info/delete
+  ccUpdate('rfi/'+id,{region:pts}).then(()=>{toast('Zone saved ✓','ok');if(STATE.activeTab==='rfis')renderBody();}).catch(e=>toast(e.message,'err')); }
+window.finishRegionDraw=finishRegionDraw;
+function clearRfiRegion(id){ if(!can('rfiEdit'))return; if(DATA.rfi[id])delete DATA.rfi[id].region; if(onMap())repaint(); closeDetail(); M.sel=null;
+  ccRef('rfi/'+id+'/region').remove().then(()=>{toast('Region cleared','ok');if(STATE.activeTab==='rfis')renderBody();}).catch(e=>toast(e.message,'err')); }
+window.clearRfiRegion=clearRfiRegion;
+/* World bounds of an RFI: its drawn region, else the footings it's assigned to. */
+function regionBounds(r){ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9,has=false;
+  if(Array.isArray(r.region)&&r.region.length){ r.region.forEach(p=>{const wx=p[0]*M.planW,wy=p[1]*M.planH;x0=Math.min(x0,wx);y0=Math.min(y0,wy);x1=Math.max(x1,wx);y1=Math.max(y1,wy);}); has=true; }
+  else (M.footings||[]).forEach(f=>{ if(f.del)return; if(rfiAppliesToFooting(r,f)){const hw=Math.max(6,f.w/2),hh=Math.max(6,f.h/2);x0=Math.min(x0,f.cx-hw);y0=Math.min(y0,f.cy-hh);x1=Math.max(x1,f.cx+hw);y1=Math.max(y1,f.cy+hh);has=true;} });
+  return has?{x0,y0,x1,y1}:null; }
+function focusRfi(id){ const r=DATA.rfi[id]; if(!r)return; if(STATE.activeTab!=='map')go('map');
+  setTimeout(()=>{ const b=regionBounds(r); M.sel={kind:'rfi',id,data:r};
+    if(b){ const W=M.box.w,H=M.box.h,m=110,bw=Math.max(30,b.x1-b.x0),bh=Math.max(30,b.y1-b.y0); let s=Math.min((W-2*m)/bw,(H-2*m)/bh); s=Math.max((M.view.base||0.02),Math.min((M.view.base||1)*3,s)); M.userView=true;M.view.s=s;M.view.tx=W/2-((b.x0+b.x1)/2)*s;M.view.ty=H/2-((b.y0+b.y1)/2)*s; }   // cap at 3× the fit-all zoom so small zones don't over-zoom
+    repaint(); openDetail(M.sel); if(!b)toast('This RFI has no region or assigned footings yet','info'); },70); }
+window.focusRfi=focusRfi;
 function setColorMode(m){ M.colorMode=m; renderBody(); }
 function setSeq(s){ M.seqFilter=s; M.selPour=null; renderBody(); }
 function toggleLayer(k){ M.layers[k]=!M.layers[k]; renderLayerPanel(); repaint(); if(ME.uid)ccUpdate('prefs/'+ME.uid,{layers:M.layers}).catch(()=>{}); }
@@ -795,6 +903,7 @@ function draw(){ if(!_cv||!_ctx)return; const dpr=Math.min(window.devicePixelRat
   if(M.layers.embeds) drawPins(ctx);
   if(M.layers.markups) drawMarkups(ctx);
   if(M.layers.rfi) drawRFIs(ctx);
+  if(M.regionDraw) drawRegionDraft(ctx);
 }
 // CUP-style: the REAL digitized gridlines (M.gridCols/M.gridRows, world coords) as dashed lines spanning
 // the viewport, with constant-size label chips (column letters along top, row numbers along left).
@@ -828,6 +937,7 @@ function drawFootings(ctx){ const isoOn=!!M.selPour, W=M.box.w, H=M.box.h;
     ctx.globalAlpha=alpha; const sel=M.sel&&M.sel.kind==='foot'&&M.sel.id===f.no;
     ctx.fillStyle=hexA(col,hot?0.95:(pid?0.7:0.46)); ctx.strokeStyle=sel?'#fff':hexA(col,hot?1:0.66); ctx.lineWidth=sel?2:1;
     if(M.hovFoot===f.no){ctx.shadowColor=hexA(col,.95);ctx.shadowBlur=9;} ctx.beginPath();rr(ctx,s.x-hw,s.y-hh,hw*2,hh*2,1.5);ctx.fill();ctx.shadowBlur=0;ctx.stroke();
+    if(M.layers.rfi){ const tc=footRFITint(f.no); if(tc){ ctx.save();ctx.shadowColor=tc;ctx.shadowBlur=9;ctx.fillStyle=hexA(tc,.6);ctx.beginPath();rr(ctx,s.x-hw,s.y-hh,hw*2,hh*2,1.5);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle=tc;ctx.lineWidth=2;ctx.stroke();ctx.restore(); } }
     const ins=DATA.inspections['foot_'+f.no]; if(ins&&ins.status){ctx.fillStyle=INSP_COL[ins.status]||'#888';ctx.beginPath();ctx.arc(s.x+hw,s.y-hh,3,0,6.2832);ctx.fill();}
     ctx.globalAlpha=1; }
 }
@@ -862,15 +972,36 @@ function drawMarkups(ctx){ for(const [id,m] of Object.entries(DATA.markups)){ if
   if(s.x<-40||s.y<-40||s.x>M.box.w+40||s.y>M.box.h+40)continue;
   ctx.fillStyle='#F59E0B';ctx.beginPath();ctx.moveTo(s.x,s.y-9);ctx.lineTo(s.x+5,s.y-3);ctx.lineTo(s.x+5,s.y);ctx.lineTo(s.x-5,s.y);ctx.lineTo(s.x-5,s.y-3);ctx.closePath();ctx.fill();
   if(m.text){ctx.font="500 10px Inter,sans-serif";const w=ctx.measureText(m.text).width;ctx.fillStyle='rgba(8,11,16,.8)';ctx.beginPath();rr(ctx,s.x+7,s.y-9,w+8,15,3);ctx.fill();ctx.fillStyle='#F5E3A8';ctx.textAlign='left';ctx.fillText(m.text,s.x+11,s.y+1.5);}} }
-function drawRFIs(ctx){ const W=M.box.w,H=M.box.h; for(const [id,r] of Object.entries(DATA.rfi)){ if(typeof r.x!=='number')continue; const s=S(r.x*M.planW,r.y*M.planH); if(s.x<-40||s.y<-40||s.x>W+40||s.y>H+40)continue; const sel=M.sel&&M.sel.kind==='rfi'&&M.sel.id===id;
-  ctx.strokeStyle=sel?'#fff':'rgba(9,12,17,.85)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x,s.y-18);ctx.stroke();
-  ctx.fillStyle='#9B5DE5';ctx.beginPath();ctx.arc(s.x,s.y-18,8,0,6.2832);ctx.fill();
-  ctx.fillStyle='#fff';ctx.fillRect(s.x-3,s.y-22.5,1.4,9);ctx.beginPath();ctx.moveTo(s.x-1.6,s.y-22.5);ctx.lineTo(s.x+4,s.y-20);ctx.lineTo(s.x-1.6,s.y-17.5);ctx.closePath();ctx.fill();} }
+// RFIs are AREAS, not pins: each RFI's region = its drawn polygon, else a cyan hull around its assigned
+// footings (like a pour outline). Plus the assigned footings glow cyan (drawFootings). One bad record can't
+// abort the canvas (per-RFI try/catch). Whole layer toggles with M.layers.rfi.
+function drawRFIs(ctx){ for(const [id,r] of Object.entries(DATA.rfi)){ try{
+    const poly=rfiWorldPoly(r); if(!poly||poly.length<3)continue;
+    const sel=M.sel&&M.sel.kind==='rfi'&&M.sel.id===id; const pts=poly.map(q=>S(q[0],q[1]));
+    ctx.beginPath();pts.forEach((s,i)=>i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y));ctx.closePath();
+    ctx.fillStyle=hexA(RFI_CYAN,sel?0.34:0.2);ctx.fill();
+    if(sel){ctx.shadowColor=RFI_CYAN;ctx.shadowBlur=14;} ctx.strokeStyle=sel?'#9BFFF6':RFI_CYAN;ctx.lineWidth=sel?2.8:2;ctx.setLineDash(sel?[]:[8,5]);ctx.stroke();ctx.setLineDash([]);ctx.shadowBlur=0;
+    let cx=0,cy=0;pts.forEach(s=>{cx+=s.x;cy+=s.y;});cx/=pts.length;cy/=pts.length; const lbl=r.number||'RFI';
+    ctx.font="700 11px Inter,system-ui,sans-serif"; const w=ctx.measureText(lbl).width;
+    ctx.fillStyle='rgba(4,22,28,.95)';ctx.beginPath();rr(ctx,cx-w/2-8,cy-10,w+16,20,7);ctx.fill();ctx.strokeStyle=RFI_CYAN;ctx.lineWidth=1.2;ctx.stroke();
+    ctx.fillStyle=RFI_CYAN;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(lbl,cx,cy);ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  }catch(_){} } }
+// Live preview while drawing a region: vertices + edges + a rubber-band to the cursor.
+function drawRegionDraft(ctx){ const rd=M.regionDraw; if(!rd)return;
+  if(rd.boxPx){ const p=rd.boxPx,x=Math.min(p[0],p[2]),y=Math.min(p[1],p[3]),w=Math.abs(p[2]-p[0]),h=Math.abs(p[3]-p[1]);   // preview drawn in raw cursor px (no view round-trip) so it tracks the cursor exactly
+    ctx.save();ctx.fillStyle=hexA(RFI_CYAN,.28);ctx.fillRect(x,y,w,h);ctx.shadowColor=RFI_CYAN;ctx.shadowBlur=10;ctx.strokeStyle='#9BFFF6';ctx.lineWidth=2.5;ctx.strokeRect(x,y,w,h);ctx.shadowBlur=0;
+    [[x,y],[x+w,y],[x+w,y+h],[x,y+h]].forEach(c=>{ctx.beginPath();ctx.arc(c[0],c[1],5,0,6.2832);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle=RFI_CYAN;ctx.lineWidth=2;ctx.stroke();});ctx.restore();return; }
+  const pts=rd.pts.map(p=>S(p[0]*M.planW,p[1]*M.planH));
+  if(pts.length>=3){ ctx.beginPath();pts.forEach((s,i)=>i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y));ctx.closePath();ctx.fillStyle=hexA(RFI_CYAN,.12);ctx.fill(); }
+  if(pts.length){ ctx.beginPath();pts.forEach((s,i)=>i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y));
+    if(rd.cur){const cs=S(rd.cur[0]*M.planW,rd.cur[1]*M.planH);ctx.lineTo(cs.x,cs.y);}
+    ctx.strokeStyle=RFI_CYAN;ctx.lineWidth=1.8;ctx.setLineDash([6,4]);ctx.stroke();ctx.setLineDash([]); }
+  pts.forEach((s,i)=>{ ctx.beginPath();ctx.arc(s.x,s.y,i===0?7:6,0,6.2832);ctx.fillStyle=i===0?RFI_CYAN:'#fff';ctx.fill();ctx.strokeStyle=i===0?'#fff':RFI_CYAN;ctx.lineWidth=2;ctx.stroke(); }); }
 
 /* interaction */
 function hitTest(px,py){
   if(M.layers.embeds) for(const [id,p] of Object.entries(DATA.pins)){ if(typeof p.x!=='number')continue; if(M.snapEmbeds&&_pinSnap[id])continue; /* snapped embeds are decorative on the footing — let the footing take the click */ const pp=pinPos(id,p); const s=S(pp.x,pp.y); if((s.x-px)**2+(s.y-py)**2<=196)return{kind:'pin',id,data:p}; }
-  if(M.layers.rfi) for(const [id,r] of Object.entries(DATA.rfi)){ if(typeof r.x!=='number')continue; const s=S(r.x*M.planW,r.y*M.planH); if((px-s.x)**2+(py-(s.y-18))**2<=120||(px>=s.x-9&&px<=s.x+9&&py>=s.y-26&&py<=s.y))return{kind:'rfi',id,data:r}; }
+  if(M.layers.rfi){ const w=toWorld(px,py); for(const [id,r] of Object.entries(DATA.rfi)){ try{ const poly=rfiWorldPoly(r); if(!poly||poly.length<3)continue; if(pointInPoly(w.wx,w.wy,poly))return{kind:'rfi',id,data:r}; }catch(_){} } }
   if(M.layers.markups) for(const [id,m] of Object.entries(DATA.markups)){ if(typeof m.x!=='number')continue; const s=S(m.x*M.planW,m.y*M.planH); if(px>=s.x-6&&px<=s.x+6&&py>=s.y-10&&py<=s.y+2)return{kind:'markup',id,data:m}; }
   if(M.layers.footings) for(let i=M.footings.length-1;i>=0;i--){ const f=M.footings[i]; if(f.del||f.isBeam)continue; const s=S(f.cx,f.cy),hw=Math.max(3,(f.w/2)*M.view.s),hh=Math.max(3,(f.h/2)*M.view.s); if(px>=s.x-hw-2&&px<=s.x+hw+2&&py>=s.y-hh-2&&py<=s.y+hh+2)return{kind:'foot',id:f.no,data:f}; }
   if(M.layers.pours){ const w=toWorld(px,py); for(const p of Object.values(_poursCache)){ const hull=poolHull(p.id); if(hull&&hull.length>=3&&pointInPoly(w.wx,w.wy,hull))return{kind:'pour',id:p.id,data:p}; } }
@@ -894,22 +1025,28 @@ function wireMap(){ const el=_cv;
   el.addEventListener('mousedown',e=>{ if(e.button===1)e.preventDefault(); }); // stop middle-click autoscroll
   el.addEventListener('auxclick',e=>e.preventDefault());
   el.addEventListener('pointerdown',e=>{_cvRect=null;const r=cvRect(),x=e.clientX-r.left,y=e.clientY-r.top;
-    if(M.armRfi){const f=toFrac(x,y);const rfi=M.armRfi;M.armRfi=null;el.style.cursor=M.scrollMode==='zoom'?'zoom-in':'grab';dropRfi(rfi,f.fx,f.fy);if(onMap())renderRfiTray();return;}
+    if(M.regionDraw){const f=toFrac(x,y);el.setPointerCapture(e.pointerId);M.regionDraw.down={fx:f.fx,fy:f.fy,x,y,drag:false};return;}   // drag = box · click = polygon point
     if(M.tool==='note'){const f=toFrac(x,y);addMarkup(f.fx,f.fy);toggleNote();return;}
     const hit=hitTest(x,y); if(hit){M.sel=hit;repaint();openDetail(hit);return;}
     el.setPointerCapture(e.pointerId);el.style.cursor='grabbing';M.drag={x,y,tx:M.view.tx,ty:M.view.ty,moved:false};});
+  el.addEventListener('dblclick',e=>{ if(M.regionDraw){e.preventDefault();finishRegionDraw();} });
   let _hovPend=false,_hovXY=null;
-  el.addEventListener('pointermove',e=>{const r=cvRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+  el.addEventListener('pointermove',e=>{if(M.regionDraw)_cvRect=null;const r=cvRect(),x=e.clientX-r.left,y=e.clientY-r.top;   // fresh rect while drawing so the box tracks the cursor even if the layout shifts/scrolls
+    if(M.regionDraw){const f=toFrac(x,y);M.regionDraw.cur=[f.fx,f.fy];const d=M.regionDraw.down;if(d){if(!d.drag&&Math.hypot(x-d.x,y-d.y)>5)d.drag=true;M.regionDraw.boxPx=d.drag?[d.x,d.y,x,y]:null;}repaint();return;}
     if(M.drag){M.userView=true;M.view.tx=M.drag.tx+(x-M.drag.x);M.view.ty=M.drag.ty+(y-M.drag.y);M.drag.moved=true;repaint();return;}
     _hovXY={x,y}; if(_hovPend)return; _hovPend=true;
     requestAnimationFrame(()=>{ _hovPend=false; const {x,y}=_hovXY; const hit=hitTest(x,y);
+      if(_cv)_cv.style.cursor=M.regionDraw?'crosshair':(hit?'pointer':(M.tool==='note'?'crosshair':(M.scrollMode==='zoom'?'zoom-in':'grab')));
       if(hit&&hit.kind==='foot'){ M.hovPour=null; if(M.hovFoot!==hit.id){M.hovFoot=hit.id;showHovCard(hit.data,x,y);repaint();} }
       else if(hit&&hit.kind==='pour'){ M.hovFoot=null; if(M.hovPour!==hit.id){M.hovPour=hit.id;repaint();} showPourTip(hit.data,x,y); }
       else if(M.hovFoot||M.hovPour){M.hovFoot=null;M.hovPour=null;const hc=document.getElementById('hovcard');if(hc)hc.innerHTML='';repaint();} });});
-  el.addEventListener('pointerup',e=>{if(M.drag&&!M.drag.moved){M.sel=null;M.selPour=null;closeDetail();renderDock();repaint();}M.drag=null;el.style.cursor=M.tool==='note'?'crosshair':(M.scrollMode==='zoom'?'zoom-in':'grab');});
+  el.addEventListener('pointerup',e=>{
+    if(M.regionDraw&&M.regionDraw.down){ _cvRect=null; const r=cvRect(),x=e.clientX-r.left,y=e.clientY-r.top,f=toFrac(x,y),d=M.regionDraw.down; M.regionDraw.down=null;M.regionDraw.boxPx=null;
+      if(d.drag){ M.regionDraw.pts=[[+d.fx.toFixed(4),+d.fy.toFixed(4)],[+f.fx.toFixed(4),+f.fy.toFixed(4)]]; finishRegionDraw(); }   // box → save
+      else { M.regionDraw.pts.push([+d.fx.toFixed(4),+d.fy.toFixed(4)]); const c=document.getElementById('regionPtCount'); if(c)c.textContent=M.regionDraw.pts.length; repaint(); }   // click → vertex
+      return; }
+    if(M.drag&&!M.drag.moved){M.sel=null;M.selPour=null;closeDetail();renderDock();repaint();}M.drag=null;el.style.cursor=M.tool==='note'?'crosshair':(M.scrollMode==='zoom'?'zoom-in':'grab');});
   el.addEventListener('pointerleave',()=>{if(M.hovFoot||M.hovPour){M.hovFoot=null;M.hovPour=null;const hc=document.getElementById('hovcard');if(hc)hc.innerHTML='';repaint();}});
-  el.addEventListener('dragover',e=>{if(window.__dragRfi)e.preventDefault();});
-  el.addEventListener('drop',e=>{if(!window.__dragRfi)return;e.preventDefault();const r=el.getBoundingClientRect(),f=toFrac(e.clientX-r.left,e.clientY-r.top);dropRfi(window.__dragRfi,f.fx,f.fy);window.__dragRfi=null;});
 }
 function showHovCard(f,px,py){ const p=pourOf(f),col=footColor(f); const host=document.getElementById('hovcard'); if(!host)return;
   const left=Math.min(px+14,M.box.w-220),top=Math.min(py+14,M.box.h-150);
@@ -949,7 +1086,7 @@ function openDetail(hit){
     return;
   }
   let cx=M.planW/2,cy=M.planH/2;   // world coords for panel anchoring
-  if(hit.kind==='rfi'){cx=hit.data.x*M.planW;cy=hit.data.y*M.planH;} else if(hit.kind==='foot'){const n=footNorm(hit.data);cx=n.x;cy=n.y;} else if(hit.kind==='markup'){cx=hit.data.x*M.planW;cy=hit.data.y*M.planH;} else if(hit.kind==='pour'){const h=poolHull(hit.id); if(h&&h.length){const c=h.reduce((a,b)=>[a[0]+b[0],a[1]+b[1]],[0,0]).map(v=>v/h.length);cx=c[0];cy=c[1];}}
+  if(hit.kind==='rfi'){const b=regionBounds(hit.data); if(b){cx=(b.x0+b.x1)/2;cy=(b.y0+b.y1)/2;}} else if(hit.kind==='foot'){const n=footNorm(hit.data);cx=n.x;cy=n.y;} else if(hit.kind==='markup'){cx=hit.data.x*M.planW;cy=hit.data.y*M.planH;} else if(hit.kind==='pour'){const h=poolHull(hit.id); if(h&&h.length){const c=h.reduce((a,b)=>[a[0]+b[0],a[1]+b[1]],[0,0]).map(v=>v/h.length);cx=c[0];cy=c[1];}}
   const s=S(cx,cy); const left=Math.min(Math.max(s.x+12,8),M.box.w-244),top=Math.min(Math.max(s.y-10,8),M.box.h-220);
   let body='';
   if(hit.kind==='foot'){ const f=hit.data,p=pourOf(f),col=footColor(f);
@@ -964,11 +1101,12 @@ function openDetail(hit){
       ${inspBlock('pour_'+p.id)}
       <a class="btn" style="width:100%;margin-top:12px" href="${APP_URLS.cupLive}" target="_blank"><span class="ms" style="font-size:15px">open_in_new</span> Open in CUP Live</a>`;
   } else if(hit.kind==='rfi'){ const r=hit.data,c=r.status==='Open'?'#EF4444':r.status==='Answered'?'#F59E0B':'#3B82F6';
-    body=`<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:9px"><div class="mono" style="font-size:13px;font-weight:700;color:#C9BBFF">${esc(r.number)}</div><div onclick="closeDetail()" style="cursor:pointer"><span class="ms" style="font-size:17px;color:#7A8290">close</span></div></div>
+    body=`<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:9px"><div style="display:flex;align-items:center;gap:6px"><span class="ms" style="font-size:17px;color:${RFI_CYAN}">help</span><span class="mono" style="font-size:13px;font-weight:700;color:${RFI_CYAN}">${esc(r.number)}</span></div><div onclick="closeDetail()" style="cursor:pointer"><span class="ms" style="font-size:17px;color:#7A8290">close</span></div></div>
       <div style="font-size:12.5px;font-weight:600;line-height:1.4;margin-bottom:10px">${esc(r.title||'')}</div>
-      <div style="margin-bottom:12px"><span class="pill" style="color:${c};background:${hexA(c,.14)}">${esc(r.status)}</span></div>
-      ${r.cover?`<img src="${esc(r.cover)}" style="width:100%;border-radius:9px;margin-bottom:12px">`:`<div style="height:64px;border-radius:9px;background:repeating-linear-gradient(45deg,rgba(255,255,255,.03),rgba(255,255,255,.03) 9px,rgba(255,255,255,.05) 9px,rgba(255,255,255,.05) 18px);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;margin-bottom:12px"><span class="mono" style="font-size:10px;color:#5B636F">RFI COVER</span></div>`}
-      <div style="display:flex;gap:8px"><a class="btn primary grad" style="flex:1" href="${esc(r.viewUrl||'#')}" target="_blank">More info ↗</a>${can('rfiEdit')?`<button class="btn" onclick="removeRfi('${hit.id}')"><span class="ms" style="font-size:15px">delete</span></button>`:''}</div>`;
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;flex-wrap:wrap"><span class="pill" style="color:${c};background:${hexA(c,.14)}">${esc(r.status)}</span><span style="font-size:10.5px;color:#9AA3B0;display:inline-flex;align-items:center;gap:4px"><span class="ms" style="font-size:13px;color:${RFI_CYAN}">filter_alt</span>${esc(scopeSummary(r.appliesTo)||'No footings tagged')}</span>${Array.isArray(r.region)&&r.region.length?`<span style="font-size:9.5px;color:${RFI_CYAN};border:1px solid ${hexA(RFI_CYAN,.4)};padding:1px 6px;border-radius:5px">drawn region</span>`:''}</div>
+      ${r.cover?`<img src="${esc(r.cover)}" style="width:100%;border-radius:9px;margin-bottom:12px">`:''}
+      <div style="display:flex;gap:8px;margin-bottom:8px"><a class="btn primary grad" style="flex:1" href="${esc(r.viewUrl||'#')}" target="_blank">More info ↗</a>${can('rfiEdit')?`<button class="btn" onclick="editRfiScope('${hit.id}')" title="Status & assigned footings"><span class="ms" style="font-size:15px">tune</span></button><button class="btn" onclick="removeRfi('${hit.id}')"><span class="ms" style="font-size:15px">delete</span></button>`:''}</div>
+      ${can('rfiEdit')?`<div style="display:flex;gap:8px"><button class="btn" style="flex:1" onclick="startRegionDraw('${hit.id}')"><span class="ms" style="font-size:15px;color:${RFI_CYAN}">gesture</span>${Array.isArray(r.region)&&r.region.length?'Redraw region':'Draw region'}</button>${Array.isArray(r.region)&&r.region.length?`<button class="btn" onclick="clearRfiRegion('${hit.id}')" title="Clear drawn region"><span class="ms" style="font-size:15px">ink_eraser</span></button>`:''}</div>`:''}`;
   } else if(hit.kind==='markup'){ const mk=hit.data;
     body=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="font-size:13px;font-weight:700">Note</div><div onclick="closeDetail()" style="cursor:pointer"><span class="ms" style="font-size:17px;color:#7A8290">close</span></div></div>
       <div style="font-size:12.5px;color:#C7CDD6;white-space:pre-wrap">${esc(mk.text||'')}</div><div style="font-size:10.5px;color:#7A8290;margin-top:8px">${esc(mk.by||'')} · ${fmtDate(mk.at)}</div>
@@ -980,17 +1118,71 @@ function cycleInsp(key){ if(!can('inspect'))return toast('No permission','warn')
   const rec={status:next,updatedBy:ME.email||ME.name,updatedAt:Date.now()}; if(next==='READY'){rec.markedReadyBy=ME.name||ME.email;rec.markedReadyAt=Date.now();}else{const o=DATA.inspections[key]||{};if(o.markedReadyBy){rec.markedReadyBy=o.markedReadyBy;rec.markedReadyAt=o.markedReadyAt;}}
   ccSet('inspections/'+safeKey(key),rec).then(()=>{ccPush('feed',{ts:Date.now(),type:'inspection',msg:key+' → '+(next||'cleared')+' ('+(ME.name||ME.email)+')'}).catch(()=>{});if(M.sel)openDetail(M.sel);}).catch(e=>toast(e.message,'err')); }
 window.cycleInsp=cycleInsp;
-function dropRfi(rfi,fx,fy){ window.__dragRfi=null; M.armRfi=null; if(!can('rfiEdit'))return toast('Editing is locked — press L and enter the PIN to place RFIs','warn'); const id=ccPush('rfi',null).key;
-  ccSet('rfi/'+id,{number:rfi.number||'RFI',title:rfi.title||'',status:rfi.status||'Open',viewUrl:rfi.viewUrl||'',cover:rfi.cover||null,x:+fx.toFixed(4),y:+fy.toFixed(4),by:ME.name||ME.email,at:Date.now()}).then(()=>{toast('RFI pinned: '+(rfi.number||''),'ok');ccPush('feed',{ts:Date.now(),type:'rfi',msg:(rfi.number||'RFI')+' pinned on the map'}).catch(()=>{});}).catch(e=>toast(e.message,'err')); }
-function addRfiManual(){ if(!can('rfiEdit'))return; openModal(`<div style="font-size:16px;font-weight:650;margin-bottom:4px">Add RFI manually</div>
-  <div style="font-size:12px;color:#7A8290;margin-bottom:12px">Stores the link only (+ optional cover). Pinned centered — drag it where it belongs.</div>
+/* ---- RFI "applies to" footing scope picker (families + individual codes, or all) ---- */
+let _rfiScope={all:false,families:new Set(),codes:new Set(),expand:null};
+function rfiScopeReset(a){ _rfiScope={all:false,families:new Set(),codes:new Set(),expand:null};
+  if(a){ _rfiScope.all=!!a.all; (a.families||[]).forEach(x=>_rfiScope.families.add(x)); (a.codes||[]).forEach(x=>_rfiScope.codes.add(String(x).toUpperCase())); } }
+function rfiScopeValue(){ return {all:_rfiScope.all,families:Array.from(_rfiScope.families),codes:Array.from(_rfiScope.codes)}; }
+function scopeSummary(a){ if(!a)return''; if(a.all)return'All footings'; const f=(a.families||[]).length,c=(a.codes||[]).length; if(!f&&!c)return''; const parts=[]; if(f)parts.push((a.families).join('/')); if(c)parts.push(c+' type'+(c>1?'s':'')); return parts.join(' · '); }
+window.rfiScopeToggleAll=function(){ _rfiScope.all=!_rfiScope.all; renderRfiScope(); };
+window.rfiScopeToggleFamily=function(g){ if(_rfiScope.families.has(g)){ _rfiScope.families.delete(g); (footingTypeIndex()[g]||[]).forEach(c=>_rfiScope.codes.delete(c)); } else _rfiScope.families.add(g); renderRfiScope(); };
+window.rfiScopeToggleCode=function(c){ c=c.toUpperCase(); if(_rfiScope.codes.has(c))_rfiScope.codes.delete(c); else _rfiScope.codes.add(c); renderRfiScope(); };
+window.rfiScopeExpand=function(g){ _rfiScope.expand=_rfiScope.expand===g?null:g; renderRfiScope(); };
+function renderRfiScope(){ const box=document.getElementById('rfiScopeBox'); if(!box)return; const idx=footingTypeIndex(),sc=_rfiScope;
+  const chip=(on,label,onclick,extra)=>`<span onclick="${onclick}" style="cursor:pointer;font-size:11px;font-weight:600;padding:4px 10px;border-radius:8px;background:${on?'rgba(139,92,246,.22)':'rgba(255,255,255,.05)'};border:1px solid ${on?'rgba(139,92,246,.6)':'rgba(255,255,255,.1)'};color:${on?'#C9BBFF':'#9AA3B0'};${extra||''}">${label}</span>`;
+  let h=`<div style="display:flex;align-items:center;gap:9px;margin-bottom:${sc.all?'0':'12px'}">${chip(sc.all,(sc.all?'✓ ':'')+'All footings','rfiScopeToggleAll()')}<span style="font-size:10.5px;color:#6B7280">applies to every footing type</span></div>`;
+  if(!sc.all){
+    h+=`<div style="font-size:10px;color:#7A8290;letter-spacing:.5px;margin-bottom:6px">FAMILIES</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">`;
+    FOOT_FAMILIES.forEach(([g])=>{ if(idx[g])h+=chip(sc.families.has(g),g,`rfiScopeToggleFamily('${g}')`); }); h+=`</div>`;
+    h+=`<div style="font-size:10px;color:#7A8290;letter-spacing:.5px;margin-bottom:4px">SPECIFIC TYPES</div>`;
+    FOOT_FAMILIES.forEach(([g,name])=>{ const codes=idx[g]; if(!codes||!codes.length)return; const famOn=sc.families.has(g),exp=sc.expand===g;
+      h+=`<div onclick="rfiScopeExpand('${g}')" style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:11.5px;color:#C7CDD6;padding:5px 0"><span class="ms" style="font-size:15px;color:#7A8290">${exp?'expand_more':'chevron_right'}</span>${name} <span style="color:#6B7280">(${codes.length})</span>${famOn?'<span style="margin-left:auto;font-size:9px;color:#9B8CF6">whole family ✓</span>':''}</div>`;
+      if(exp){ h+=`<div style="display:flex;flex-wrap:wrap;gap:5px;padding:2px 0 8px 22px">`+codes.map(c=>chip(famOn||sc.codes.has(c),c,famOn?'void 0':`rfiScopeToggleCode('${c}')`,famOn?'opacity:.5;cursor:default':'')).join('')+`</div>`; }
+    });
+  }
+  box.innerHTML=h; }
+const RFI_SCOPE_BOX='<div id="rfiScopeBox" style="max-height:250px;overflow:auto;margin-bottom:12px;padding:11px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.02)"></div>';
+function editRfiScope(id){ if(!requireRfiEdit(()=>editRfiScope(id)))return; const r=DATA.rfi[id]; if(!r)return; closeDetail(); rfiScopeReset(r.appliesTo); const hasReg=Array.isArray(r.region)&&r.region.length;
+  openModal(`<div style="font-size:16px;font-weight:650;margin-bottom:2px;display:flex;align-items:center;gap:7px"><span class="ms" style="color:${RFI_CYAN}">help</span>RFI ${esc(r.number||'')}</div>
+    <div style="font-size:12px;color:#7A8290;margin-bottom:12px">Mark the area this RFI covers — by footing type (auto cyan tint) and/or a drawn region. Both show on the map’s RFI layer.</div>
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px">Status</div>
+    <select class="fld" id="reS" style="width:100%;margin-bottom:14px"><option ${r.status==='Open'?'selected':''}>Open</option><option ${r.status==='Answered'?'selected':''}>Answered</option><option ${r.status==='Closed'?'selected':''}>Closed</option></select>
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px">Region on the plan</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px"><button class="btn" style="flex:1" onclick="startRegionDraw('${id}')"><span class="ms" style="font-size:16px;color:${RFI_CYAN}">gesture</span>${hasReg?'Redraw region':'Draw region'}</button>${hasReg?`<button class="btn" onclick="clearRfiRegion('${id}')"><span class="ms" style="font-size:15px">ink_eraser</span>Clear</button>`:''}</div>
+    <div style="font-size:12px;font-weight:600;margin-bottom:8px">Applies to footing types</div>${RFI_SCOPE_BOX}
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary grad" onclick="saveRfiScope('${id}')">Save</button></div>`);
+  renderRfiScope(); }
+window.editRfiScope=editRfiScope;
+function saveRfiScope(id){ const scope=rfiScopeValue(),sel=document.getElementById('reS'); const upd={appliesTo:scope}; if(sel)upd.status=sel.value;
+  ccUpdate('rfi/'+id,upd).then(()=>{ closeModal(); toast('RFI updated','ok'); }).catch(e=>toast(e.message,'err')); }
+window.saveRfiScope=saveRfiScope;
+/* Assign a Drive RFI to an area: footing types (auto cyan tint). A drawn region can be added after. No pins. */
+let _assignRfi=null;
+function assignDriveRfi(i){ if(!requireRfiEdit(()=>assignDriveRfi(i)))return; const rfi=rfiAvail()[i]; if(!rfi)return; _assignRfi=rfi; rfiScopeReset(null);
+  openModal(`<div style="font-size:16px;font-weight:650;margin-bottom:2px;display:flex;align-items:center;gap:7px"><span class="ms" style="color:${RFI_CYAN}">help</span>Assign ${esc(rfi.number||'RFI')}</div>
+    <div style="font-size:12px;color:#7A8290;margin-bottom:12px">Mark the footing types this RFI covers — they’ll tint cyan on the map. You can draw a freeform region after.</div>
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px">Status</div>
+    <select class="fld" id="aS" style="width:100%;margin-bottom:12px"><option ${rfi.status==='Open'?'selected':''}>Open</option><option ${rfi.status==='Answered'?'selected':''}>Answered</option><option ${rfi.status==='Closed'?'selected':''}>Closed</option></select>
+    <div style="font-size:12px;font-weight:600;margin-bottom:8px">Applies to footing types</div>${RFI_SCOPE_BOX}
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn" onclick="saveAssignRfi(true)"><span class="ms" style="font-size:15px;color:${RFI_CYAN}">gesture</span>Assign & draw region</button><button class="btn primary grad" onclick="saveAssignRfi()">Assign</button></div>`);
+  renderRfiScope(); }
+window.assignDriveRfi=assignDriveRfi;
+function saveAssignRfi(thenDraw){ const rfi=_assignRfi; if(!rfi)return; const scope=rfiScopeValue(),sel=document.getElementById('aS'),st=sel?sel.value:(rfi.status||'Open'); const id=ccPush('rfi',null).key;
+  const rec={number:rfi.number||'RFI',title:rfi.title||'',status:st,viewUrl:rfi.viewUrl||'',cover:rfi.cover||null,appliesTo:scope,by:ME.name||ME.email,at:Date.now()};   // areas only — no x,y
+  DATA.rfi[id]=rec; buildFootRFI(); if(onMap()){renderRfiTray();renderLayerPanel();repaint();} if(STATE.activeTab==='rfis')renderBody();
+  ccSet('rfi/'+id,rec).then(()=>{closeModal();toast('RFI assigned','ok'); if(thenDraw===true)startRegionDraw(id);}).catch(e=>{delete DATA.rfi[id];buildFootRFI();if(STATE.activeTab==='rfis')renderBody();toast(e.message,'err');}); }
+window.saveAssignRfi=saveAssignRfi;
+function addRfiManual(){ if(!requireRfiEdit(()=>addRfiManual()))return; rfiScopeReset(null); openModal(`<div style="font-size:16px;font-weight:650;margin-bottom:4px">Add RFI manually</div>
+  <div style="font-size:12px;color:#7A8290;margin-bottom:12px">Stores the link + the area it covers. Draw a region afterward from “Edit area”.</div>
   <input class="fld" id="rN" placeholder="RFI number" style="width:100%;margin-bottom:8px"><input class="fld" id="rT" placeholder="Subject" style="width:100%;margin-bottom:8px">
   <input class="fld" id="rU" placeholder="Drive link" style="width:100%;margin-bottom:8px"><select class="fld" id="rS" style="width:100%;margin-bottom:8px"><option>Open</option><option>Answered</option><option>Closed</option></select>
-  <input class="fld" id="rC" type="file" accept="image/*" style="width:100%;margin-bottom:8px">
-  <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary grad" onclick="saveRfiManual()">Save &amp; pin</button></div>`); }
+  <input class="fld" id="rC" type="file" accept="image/*" style="width:100%;margin-bottom:10px">
+  <div style="font-size:12px;font-weight:600;margin-bottom:8px">Applies to</div>${RFI_SCOPE_BOX}
+  <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary grad" onclick="saveRfiManual()">Save</button></div>`);
+  renderRfiScope(); }
 window.addRfiManual=addRfiManual;
-function saveRfiManual(){ const num=document.getElementById('rN').value.trim(),title=document.getElementById('rT').value.trim(),url=document.getElementById('rU').value.trim(),status=document.getElementById('rS').value,file=document.getElementById('rC').files[0];
-  const fin=cover=>{const id=ccPush('rfi',null).key;ccSet('rfi/'+id,{number:num||'RFI',title,status,viewUrl:url,cover:cover||null,x:0.5,y:0.5,by:ME.name||ME.email,at:Date.now()}).then(()=>{closeModal();toast('RFI added — drag it on the map','ok');go('map');}).catch(e=>toast(e.message,'err'));};
+function saveRfiManual(){ const num=document.getElementById('rN').value.trim(),title=document.getElementById('rT').value.trim(),url=document.getElementById('rU').value.trim(),status=document.getElementById('rS').value,file=document.getElementById('rC').files[0],scope=rfiScopeValue();
+  const fin=cover=>{const id=ccPush('rfi',null).key;ccSet('rfi/'+id,{number:num||'RFI',title,status,viewUrl:url,cover:cover||null,appliesTo:scope,by:ME.name||ME.email,at:Date.now()}).then(()=>{closeModal();toast('RFI added','ok');if(STATE.activeTab==='rfis')renderBody();}).catch(e=>toast(e.message,'err'));};
   if(file){const rd=new FileReader();rd.onload=()=>fin(rd.result);rd.readAsDataURL(file);}else fin(null); }
 window.saveRfiManual=saveRfiManual;
 function removeRfi(id){ if(!can('rfiEdit'))return; ccRef('rfi/'+id).remove().then(()=>{closeDetail();M.sel=null;toast('RFI removed','ok');}); }
@@ -1011,17 +1203,50 @@ function loadDriveRFIs(){ const live=/^https/.test(RFI_API_URL); const url=live?
   fetch(url).then(r=>r.json()).then(l=>{ RFI_DRIVE=Array.isArray(l)?l:(l.rfis||[]); if(onMap())renderRfiTray(); if(STATE.activeTab==='rfis')renderBody(); })
     .catch(e=>{ console.warn('RFI list',e); if(live) fetch('rfis.json').then(r=>r.json()).then(l=>{RFI_DRIVE=Array.isArray(l)?l:(l.rfis||[]);if(onMap())renderRfiTray();if(STATE.activeTab==='rfis')renderBody();}).catch(()=>{}); }); }
 window.loadDriveRFIs=loadDriveRFIs;
-function rfiHTML(){ const placed=Object.entries(DATA.rfi);
-  const pill=s=>{const c=s==='Open'?'#EF4444':s==='Answered'?'#F59E0B':'#3B82F6';return `font-size:9px;font-weight:600;text-transform:uppercase;padding:2px 6px;border-radius:5px;color:${c};background:${hexA(c,.14)}`;};
-  return `<div style="padding:22px;animation:oyFade .35s ease"><div style="display:flex;align-items:center;gap:12px;margin-bottom:18px"><div style="font-size:17px;font-weight:650">RFIs</div><div style="flex:1"></div>
-    ${can('rfiEdit')?`<button class="ghostbtn" onclick="addRfiManual()"><span class="ms" style="font-size:15px">add</span>Add manually</button>`:''}
-    <button class="ghostbtn" onclick="loadDriveRFIs()"><span class="ms" style="font-size:15px">sync</span>Refresh Drive</button></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-      <div class="card" style="padding:16px"><div style="font-size:13px;font-weight:600;margin-bottom:10px">Pinned on map (${placed.length})</div>
-        ${placed.length?placed.map(([id,r])=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)"><span class="mono" style="font-size:12px;color:#C9BBFF">${esc(r.number)}</span><span style="${pill(r.status)}">${esc(r.status)}</span><div style="flex:1"></div><a href="${esc(r.viewUrl||'#')}" target="_blank" style="color:#9B8CF6;font-size:11.5px">open</a></div>`).join(''):'<div style="color:#5B636F;font-size:12px">None pinned.</div>'}</div>
-      <div class="card" style="padding:16px"><div style="font-size:13px;font-weight:600;margin-bottom:10px">Available in Drive (${RFI_DRIVE.length})</div>
-        ${RFI_DRIVE.length?RFI_DRIVE.slice(0,60).map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)"><span class="mono" style="font-size:12px;color:#C9BBFF">${esc(r.number)}</span><span style="${pill(r.status)}">${esc(r.status)}</span><div style="flex:1;font-size:11px;color:#9AA3B0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.title||'')}</div><a href="${esc(r.viewUrl||'#')}" target="_blank" style="color:#9B8CF6;font-size:11.5px">view</a></div>`).join(''):`<div style="color:#7A8290;font-size:12.5px">Set <span class="mono">RFI_API_URL</span> to auto-list the Drive folder, or add RFIs manually.</div>`}</div></div>
-    <div style="font-size:12px;color:#7A8290;margin-top:12px">Drag RFIs onto the <a onclick="go('map')" style="color:#9B8CF6;cursor:pointer">Map</a> to pin them.</div></div>`;
+function rfiPillStyle(s){ const c=s==='Open'?'#EF4444':s==='Answered'?'#F59E0B':'#3B82F6'; return `font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:2px 7px;border-radius:5px;color:${c};background:${hexA(c,.14)}`; }
+function rfiIconBtn(icon,title,onclick){ return `<button class="ghostbtn" style="padding:5px 7px" title="${title}" onclick="${onclick}"><span class="ms" style="font-size:16px">${icon}</span></button>`; }
+function rfiActiveRow([id,r]){ const ed=can('rfiEdit'),scope=scopeSummary(r.appliesTo),hasReg=Array.isArray(r.region)&&r.region.length;
+  return `<div class="card" style="display:flex;align-items:center;gap:12px;padding:11px 13px;margin-bottom:8px">
+    <span class="ms" style="font-size:22px;color:${RFI_CYAN}">help</span>
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="mono" style="font-size:12.5px;font-weight:700;color:${RFI_CYAN}">${esc(r.number)}</span><span style="${rfiPillStyle(r.status)}">${esc(r.status)}</span>${hasReg?`<span style="font-size:9px;color:${RFI_CYAN};border:1px solid ${hexA(RFI_CYAN,.4)};padding:1px 6px;border-radius:5px">region</span>`:''}</div>
+      ${r.title?`<div style="font-size:11.5px;color:#9AA3B0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px">${esc(r.title)}</div>`:''}
+      <div style="font-size:10.5px;color:#7A8290;margin-top:3px;display:flex;align-items:center;gap:4px"><span class="ms" style="font-size:12px;color:${RFI_CYAN}">filter_alt</span>${scope?esc(scope):(hasReg?'Drawn region only':'No area set yet')}</div>
+    </div>
+    <button class="ghostbtn" style="padding:5px 10px;font-size:11px" onclick="focusRfi('${id}')" title="Show this RFI's area on the map"><span class="ms" style="font-size:14px;color:${RFI_CYAN}">my_location</span>Show on map</button>
+    ${ed?`<button class="ghostbtn" style="padding:5px 10px;font-size:11px" onclick="editRfiScope('${id}')"><span class="ms" style="font-size:14px;color:${RFI_CYAN}">tune</span>Edit area</button>${rfiIconBtn('delete','Remove RFI',`removeRfi('${id}')`)}`:''}
+    <a href="${esc(r.viewUrl||'#')}" target="_blank" class="ghostbtn" style="padding:5px 7px" title="Open in Drive"><span class="ms" style="font-size:16px;color:${RFI_CYAN}">open_in_new</span></a>
+  </div>`; }
+let _rfiQuery='';
+window.rfiSearch=function(v){ _rfiQuery=v; renderRfiList(); };
+function rfiMatchQ(r){ const q=_rfiQuery.trim().toLowerCase(); if(!q)return true; return (r.number||'').toLowerCase().includes(q)||(r.title||'').toLowerCase().includes(q)||(scopeSummary(r.appliesTo)||'').toLowerCase().includes(q); }
+function renderRfiList(){ const host=document.getElementById('rfiActiveList'); if(!host)return; const list=Object.entries(DATA.rfi).filter(([id,r])=>rfiMatchQ(r));
+  host.innerHTML=list.length?list.map(rfiActiveRow).join(''):`<div class="card" style="padding:22px;text-align:center;color:#7A8290;font-size:12.5px">${Object.keys(DATA.rfi).length?'No RFIs match “'+esc(_rfiQuery)+'”.':`No RFIs yet — <span style="color:${RFI_CYAN}">Assign</span> one from Drive below.`}</div>`; }
+function rfiHTML(){ const all=Object.entries(DATA.rfi), avail=rfiAvail(), ed=can('rfiEdit');
+  const cnt=s=>all.filter(([,r])=>r.status===s).length;
+  const stat=(label,n,c)=>`<div style="display:flex;align-items:center;gap:9px;padding:9px 15px;border-radius:12px;background:${hexA(c,.09)};border:1px solid ${hexA(c,.22)}"><span style="font-size:18px;font-weight:750;color:${c}">${n}</span><span style="font-size:11.5px;color:#9AA3B0">${label}</span></div>`;
+  const dRow=(r,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,.05)">
+      <span class="mono" style="font-size:12px;color:${RFI_CYAN};flex-shrink:0">${esc(r.number)}</span><span style="${rfiPillStyle(r.status)}">${esc(r.status)}</span>
+      <div style="flex:1;min-width:0;font-size:11px;color:#9AA3B0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.title||'')}</div>
+      ${ed?`<button class="ghostbtn" style="padding:5px 11px;font-size:11px" onclick="assignDriveRfi(${i})"><span class="ms" style="font-size:14px;color:${RFI_CYAN}">add_task</span>Assign area</button>`:''}
+      <a href="${esc(r.viewUrl||'#')}" target="_blank" style="color:${RFI_CYAN};font-size:11.5px;flex-shrink:0">view</a>
+    </div>`;
+  const listHTML=all.filter(([id,r])=>rfiMatchQ(r));
+  return `<div style="padding:24px;max-width:1080px;margin:0 auto;animation:oyFade .35s ease">
+    <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:20px">
+      <div style="width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:${hexA(RFI_CYAN,.14)};border:1px solid ${hexA(RFI_CYAN,.3)};flex-shrink:0"><span class="ms" style="font-size:24px;color:${RFI_CYAN}">help</span></div>
+      <div style="flex:1"><div style="font-size:19px;font-weight:700">RFIs</div><div style="font-size:12.5px;color:#7A8290;margin-top:2px;max-width:580px">Each RFI marks an <b style="color:${RFI_CYAN}">area</b> — by footing type (auto cyan tint) and/or a region you draw on the plan. Toggle the RFI layer on the map to reveal them; search and hit <b>Show on map</b> to fly to one.</div></div>
+      ${ed?`<button class="ghostbtn" onclick="addRfiManual()"><span class="ms" style="font-size:15px">add</span>Add manually</button>`:''}
+      <button class="ghostbtn" onclick="loadDriveRFIs()"><span class="ms" style="font-size:15px">sync</span>Refresh Drive</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px">${stat('Open',cnt('Open'),'#EF4444')}${stat('Answered',cnt('Answered'),'#F59E0B')}${stat('Closed',cnt('Closed'),'#3B82F6')}${stat('Active',all.length,RFI_CYAN)}</div>
+    <div style="position:relative;margin-bottom:14px"><span class="ms" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:18px;color:#7A8290">search</span>
+      <input class="fld" oninput="rfiSearch(this.value)" value="${esc(_rfiQuery)}" placeholder="Search RFIs by number, subject or footing…" style="width:100%;padding-left:40px"></div>
+    <div style="font-size:13px;font-weight:650;margin-bottom:11px;display:flex;align-items:center;gap:7px"><span class="ms" style="font-size:17px;color:${RFI_CYAN}">checklist</span>Active RFIs <span style="color:#6B7280;font-weight:400">(${all.length})</span></div>
+    <div id="rfiActiveList">${listHTML.length?listHTML.map(rfiActiveRow).join(''):`<div class="card" style="padding:28px;text-align:center;color:#7A8290;font-size:12.5px">${all.length?'No RFIs match.':`No RFIs yet — hit <span style="color:${RFI_CYAN}">Assign area</span> on one below.`}</div>`}</div>
+    <div style="font-size:13px;font-weight:650;margin:24px 0 9px;display:flex;align-items:center;gap:7px"><span class="ms" style="font-size:17px;color:#7A8290">folder_open</span>Available in Drive <span style="color:#6B7280;font-weight:400">(${avail.length})</span></div>
+    <div class="card" style="padding:8px 14px">${avail.length?avail.slice(0,80).map((r,i)=>dRow(r,i)).join(''):`<div style="color:#7A8290;font-size:12.5px;padding:16px 0;text-align:center">${RFI_DRIVE.length?'All Drive RFIs are active ✓':'Set <span class="mono">RFI_API_URL</span> to auto-list the Drive folder, or add RFIs manually.'}</div>`}</div>
+  </div>`;
 }
 
 /* ============================================================================
@@ -1600,7 +1825,10 @@ async function sendChat(){ const t=(STATE.chatInput||'').trim(); if(!t||STATE.ch
 window.sendChat=sendChat;
 
 // Bluebeam-style keyboard shortcuts on the map: V=pan, Z=zoom, F=fit
-document.addEventListener('keydown',e=>{ if(STATE.screen!=='app')return; const tg=(e.target&&e.target.tagName)||''; if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT')return; if(e.metaKey||e.ctrlKey||e.altKey)return;
+document.addEventListener('keydown',e=>{ if(STATE.screen!=='app')return; const tg=(e.target&&e.target.tagName)||''; if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT')return;
+  // Region drawing keys first — must run BEFORE the meta/ctrl guard so Cmd/Ctrl+Z (undo point) works.
+  if(M.regionDraw){ if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undoRegionPoint();return;} if(e.key==='Enter'){e.preventDefault();finishRegionDraw();} else if(e.key==='Escape'){e.preventDefault();cancelRegionDraw();} else if(e.key==='Backspace'){e.preventDefault();undoRegionPoint();} return; }
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
   const k=e.key.toLowerCase();
   if(k==='l'){ toggleLock(); return; }                 // lock/unlock editing, any screen
   if(k==='h'&&STATE.activeTab==='schedule'){ toggleSchedScroll(); return; }  // flip timeline wheel scroll axis

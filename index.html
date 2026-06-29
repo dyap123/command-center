@@ -995,8 +995,9 @@ window.removeMarkup=removeMarkup;
    RFIs (Drive list) + RFI tab
    ============================================================================ */
 let RFI_DRIVE=[];
-// Live RFI list: prefer the deployed Apps Script (RFI_API_URL, lists the whole Drive folder incl. the
-// ~190 closed RFIs); fall back to the committed rfis.json snapshot (active RFIs) until it's deployed.
+// RFI list: a manual static snapshot in rfis.json (synced from the LACC RFI Drive folder — POC).
+// A live source (e.g. Box) can be wired later by pointing RFI_API_URL at a JSON endpoint, which then
+// takes precedence over the snapshot. apps-script/Code.gs is a Drive lister kept for reference.
 function loadDriveRFIs(){ const live=/^https/.test(RFI_API_URL); const url=live?RFI_API_URL:'rfis.json';
   fetch(url).then(r=>r.json()).then(l=>{ RFI_DRIVE=Array.isArray(l)?l:(l.rfis||[]); if(onMap())renderRfiTray(); if(STATE.activeTab==='rfis')renderBody(); })
     .catch(e=>{ console.warn('RFI list',e); if(live) fetch('rfis.json').then(r=>r.json()).then(l=>{RFI_DRIVE=Array.isArray(l)?l:(l.rfis||[]);if(onMap())renderRfiTray();if(STATE.activeTab==='rfis')renderBody();}).catch(()=>{}); }); }

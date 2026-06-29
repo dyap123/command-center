@@ -714,22 +714,30 @@ function renderDock(){ const dock=document.getElementById('dock'); if(!dock)retu
     </div>
     <div style="border-top:1px solid rgba(255,255,255,.06);padding:13px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span class="mono" style="font-size:9.5px;color:#5B636F;letter-spacing:1px">RFI TRAY</span><span class="ms" style="font-size:14px;color:#5B636F">drag_indicator</span></div>
-      <div style="font-size:10px;color:#7A8290;margin-bottom:9px">Drag a chip onto the plan${can('rfiEdit')?'':' (view only)'}</div>
-      <div id="rfitray" style="display:flex;flex-direction:column;gap:7px;max-height:150px;overflow:auto"></div>
+      <div style="font-size:10px;color:#7A8290;margin-bottom:9px">Drag a chip onto the plan — or click a chip, then click the plan.${can('rfiEdit')?'':' Press <b>L</b> to unlock editing first.'} Drag the tray's bottom edge ↕ to resize.</div>
+      <div id="rfitray" style="display:flex;flex-direction:column;gap:7px;height:220px;min-height:80px;max-height:62vh;overflow:auto;resize:vertical"></div>
       ${can('rfiEdit')?`<button class="ghostbtn" style="width:100%;justify-content:center;margin-top:8px" onclick="addRfiManual()"><span class="ms" style="font-size:15px">add</span> Add RFI manually</button>`:''}
     </div>`;
   renderRfiTray();
 }
 function renderRfiTray(){ const host=document.getElementById('rfitray'); if(!host)return;
+  // remember the user's resized tray height across renders
+  if(!host._roOn){ host._roOn=true; const sv=()=>{try{if(host.style.height)localStorage.setItem('cc_rfitrayH',host.style.height);}catch(_){}}; try{new ResizeObserver(sv).observe(host);}catch(_){} const sh=(()=>{try{return localStorage.getItem('cc_rfitrayH');}catch(_){return null;}})(); if(sh)host.style.height=sh; }
   const placed=new Set(Object.values(DATA.rfi).map(r=>r.number)); const avail=RFI_DRIVE.filter(r=>!placed.has(r.number));
   if(!avail.length){ host.innerHTML=`<div style="text-align:center;padding:12px;font-size:11px;color:#5B636F">${RFI_DRIVE.length?'All RFIs pinned ✓':(/^https/.test(RFI_API_URL)?'Loading…':'Connect the RFI Apps Script to auto-list.')}</div>`; return; }
   const pill=s=>{const c=s==='Open'?'#EF4444':s==='Answered'?'#F59E0B':'#3B82F6';return `font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:2px 6px;border-radius:5px;color:${c};background:${hexA(c,.14)}`;};
-  host.innerHTML=avail.slice(0,40).map((r,i)=>`<div draggable="${can('rfiEdit')}" ondragstart="rfiDrag(${i})" ondragend="window.__dragRfi=null" style="display:flex;align-items:center;gap:9px;padding:8px 9px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:9px;cursor:${can('rfiEdit')?'grab':'default'}">
+  host.innerHTML=avail.slice(0,40).map((r,i)=>`<div draggable="true" ondragstart="rfiDrag(event,${i})" ondragend="window.__dragRfi=null" onclick="rfiArm(${i})" title="Drag onto the plan, or click then click the plan" style="display:flex;align-items:center;gap:9px;padding:8px 9px;background:${M.armRfi&&M.armRfi.number===r.number?'rgba(139,92,246,.18)':'rgba(255,255,255,.04)'};border:1px solid ${M.armRfi&&M.armRfi.number===r.number?'rgba(139,92,246,.5)':'rgba(255,255,255,.09)'};border-radius:9px;cursor:grab">
     <span class="ms" style="font-size:14px;color:#7A8290">drag_indicator</span>
     <div style="flex:1;min-width:0"><div class="mono" style="font-size:11px;font-weight:650;color:#C9BBFF">${esc(r.number)}</div><div style="font-size:10px;color:#9AA3B0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.title||'')}</div></div>
     <span style="${pill(r.status)}">${esc(r.status||'')}</span></div>`).join('');
 }
-window.rfiDrag=function(i){ if(!can('rfiEdit'))return; const placed=new Set(Object.values(DATA.rfi).map(r=>r.number)); window.__dragRfi=RFI_DRIVE.filter(r=>!placed.has(r.number))[i]; };
+function rfiAvail(){ const placed=new Set(Object.values(DATA.rfi).map(r=>r.number)); return RFI_DRIVE.filter(r=>!placed.has(r.number)); }
+// HTML5 drag: set dataTransfer so the drop event actually fires (Chrome/Firefox need it).
+window.rfiDrag=function(e,i){ const rfi=rfiAvail()[i]; if(!rfi)return; window.__dragRfi=rfi; M.armRfi=null; if(e&&e.dataTransfer){try{e.dataTransfer.setData('text/plain',rfi.number||'RFI');e.dataTransfer.effectAllowed='copy';}catch(_){}}};
+// Click-to-place fallback (reliable + touch-friendly): click a chip to arm, then click the plan.
+window.rfiArm=function(i){ const rfi=rfiAvail()[i]; if(!rfi)return; if(!can('rfiEdit'))return toast('Editing is locked — press L and enter the PIN to place RFIs','warn');
+  M.armRfi=(M.armRfi&&M.armRfi.number===rfi.number)?null:rfi; if(_cv)_cv.style.cursor=M.armRfi?'crosshair':'grab'; if(onMap())renderRfiTray();
+  if(M.armRfi)toast('Now click on the plan to drop '+(rfi.number||'RFI'),'info'); };
 function setColorMode(m){ M.colorMode=m; renderBody(); }
 function setSeq(s){ M.seqFilter=s; M.selPour=null; renderBody(); }
 function toggleLayer(k){ M.layers[k]=!M.layers[k]; renderLayerPanel(); repaint(); if(ME.uid)ccUpdate('prefs/'+ME.uid,{layers:M.layers}).catch(()=>{}); }
@@ -886,6 +894,7 @@ function wireMap(){ const el=_cv;
   el.addEventListener('mousedown',e=>{ if(e.button===1)e.preventDefault(); }); // stop middle-click autoscroll
   el.addEventListener('auxclick',e=>e.preventDefault());
   el.addEventListener('pointerdown',e=>{_cvRect=null;const r=cvRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+    if(M.armRfi){const f=toFrac(x,y);const rfi=M.armRfi;M.armRfi=null;el.style.cursor=M.scrollMode==='zoom'?'zoom-in':'grab';dropRfi(rfi,f.fx,f.fy);if(onMap())renderRfiTray();return;}
     if(M.tool==='note'){const f=toFrac(x,y);addMarkup(f.fx,f.fy);toggleNote();return;}
     const hit=hitTest(x,y); if(hit){M.sel=hit;repaint();openDetail(hit);return;}
     el.setPointerCapture(e.pointerId);el.style.cursor='grabbing';M.drag={x,y,tx:M.view.tx,ty:M.view.ty,moved:false};});
@@ -971,7 +980,7 @@ function cycleInsp(key){ if(!can('inspect'))return toast('No permission','warn')
   const rec={status:next,updatedBy:ME.email||ME.name,updatedAt:Date.now()}; if(next==='READY'){rec.markedReadyBy=ME.name||ME.email;rec.markedReadyAt=Date.now();}else{const o=DATA.inspections[key]||{};if(o.markedReadyBy){rec.markedReadyBy=o.markedReadyBy;rec.markedReadyAt=o.markedReadyAt;}}
   ccSet('inspections/'+safeKey(key),rec).then(()=>{ccPush('feed',{ts:Date.now(),type:'inspection',msg:key+' → '+(next||'cleared')+' ('+(ME.name||ME.email)+')'}).catch(()=>{});if(M.sel)openDetail(M.sel);}).catch(e=>toast(e.message,'err')); }
 window.cycleInsp=cycleInsp;
-function dropRfi(rfi,fx,fy){ if(!can('rfiEdit'))return toast('No permission','warn'); const id=ccPush('rfi',null).key;
+function dropRfi(rfi,fx,fy){ window.__dragRfi=null; M.armRfi=null; if(!can('rfiEdit'))return toast('Editing is locked — press L and enter the PIN to place RFIs','warn'); const id=ccPush('rfi',null).key;
   ccSet('rfi/'+id,{number:rfi.number||'RFI',title:rfi.title||'',status:rfi.status||'Open',viewUrl:rfi.viewUrl||'',cover:rfi.cover||null,x:+fx.toFixed(4),y:+fy.toFixed(4),by:ME.name||ME.email,at:Date.now()}).then(()=>{toast('RFI pinned: '+(rfi.number||''),'ok');ccPush('feed',{ts:Date.now(),type:'rfi',msg:(rfi.number||'RFI')+' pinned on the map'}).catch(()=>{});}).catch(e=>toast(e.message,'err')); }
 function addRfiManual(){ if(!can('rfiEdit'))return; openModal(`<div style="font-size:16px;font-weight:650;margin-bottom:4px">Add RFI manually</div>
   <div style="font-size:12px;color:#7A8290;margin-bottom:12px">Stores the link only (+ optional cover). Pinned centered — drag it where it belongs.</div>

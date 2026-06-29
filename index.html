@@ -995,7 +995,11 @@ window.removeMarkup=removeMarkup;
    RFIs (Drive list) + RFI tab
    ============================================================================ */
 let RFI_DRIVE=[];
-function loadDriveRFIs(){ if(!/^https/.test(RFI_API_URL))return; fetch(RFI_API_URL).then(r=>r.json()).then(l=>{RFI_DRIVE=Array.isArray(l)?l:(l.rfis||[]);if(onMap())renderRfiTray();if(STATE.activeTab==='rfis')renderBody();}).catch(e=>console.warn('RFI list',e)); }
+// Live RFI list: prefer the deployed Apps Script (RFI_API_URL, lists the whole Drive folder incl. the
+// ~190 closed RFIs); fall back to the committed rfis.json snapshot (active RFIs) until it's deployed.
+function loadDriveRFIs(){ const live=/^https/.test(RFI_API_URL); const url=live?RFI_API_URL:'rfis.json';
+  fetch(url).then(r=>r.json()).then(l=>{ RFI_DRIVE=Array.isArray(l)?l:(l.rfis||[]); if(onMap())renderRfiTray(); if(STATE.activeTab==='rfis')renderBody(); })
+    .catch(e=>{ console.warn('RFI list',e); if(live) fetch('rfis.json').then(r=>r.json()).then(l=>{RFI_DRIVE=Array.isArray(l)?l:(l.rfis||[]);if(onMap())renderRfiTray();if(STATE.activeTab==='rfis')renderBody();}).catch(()=>{}); }); }
 window.loadDriveRFIs=loadDriveRFIs;
 function rfiHTML(){ const placed=Object.entries(DATA.rfi);
   const pill=s=>{const c=s==='Open'?'#EF4444':s==='Answered'?'#F59E0B':'#3B82F6';return `font-size:9px;font-weight:600;text-transform:uppercase;padding:2px 6px;border-radius:5px;color:${c};background:${hexA(c,.14)}`;};

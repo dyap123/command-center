@@ -805,7 +805,7 @@ function rfiChipUp(e){ const d=_chipDrag; _chipDrag=null; if(!d)return; if(d.gho
 function createRfiAndDraw(rfi,firstPt){ if(!requireRfiEdit(()=>createRfiAndDraw(rfi,firstPt)))return; const id=ccPush('rfi',null).key;
   const rec={number:rfi.number||'RFI',title:rfi.title||'',status:rfi.status||'Open',viewUrl:rfi.viewUrl||'',cover:rfi.cover||null,appliesTo:{all:false,families:[],codes:[]},by:ME.name||ME.email,at:Date.now()};
   DATA.rfi[id]=rec; if(onMap()){renderRfiTray();renderLayerPanel();} ccSet('rfi/'+id,rec).catch(e=>toast(e.message,'err'));
-  startRegionDraw(id); if(firstPt&&M.regionDraw){ M.regionDraw.pts.push(firstPt); const c=document.getElementById('regionPtCount'); if(c)c.textContent='1'; repaint(); } }
+  startRegionDraw(id); }   // start empty — drag a clean box (no seeded point / stray rubber-band line)
 window.createRfiAndDraw=createRfiAndDraw;
 /* ---- RFI region drawing (polygon) — the user outlines an area on the plan ---- */
 function startRegionDraw(id){ if(!requireRfiEdit(()=>startRegionDraw(id)))return; const r=DATA.rfi[id]; if(!r)return;
@@ -937,7 +937,7 @@ function drawFootings(ctx){ const isoOn=!!M.selPour, W=M.box.w, H=M.box.h;
     ctx.globalAlpha=alpha; const sel=M.sel&&M.sel.kind==='foot'&&M.sel.id===f.no;
     ctx.fillStyle=hexA(col,hot?0.95:(pid?0.7:0.46)); ctx.strokeStyle=sel?'#fff':hexA(col,hot?1:0.66); ctx.lineWidth=sel?2:1;
     if(M.hovFoot===f.no){ctx.shadowColor=hexA(col,.95);ctx.shadowBlur=9;} ctx.beginPath();rr(ctx,s.x-hw,s.y-hh,hw*2,hh*2,1.5);ctx.fill();ctx.shadowBlur=0;ctx.stroke();
-    if(M.layers.rfi){ const tc=footRFITint(f.no); if(tc){ ctx.save();ctx.shadowColor=tc;ctx.shadowBlur=9;ctx.fillStyle=hexA(tc,.6);ctx.beginPath();rr(ctx,s.x-hw,s.y-hh,hw*2,hh*2,1.5);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle=tc;ctx.lineWidth=2;ctx.stroke();ctx.restore(); } }
+    if(M.layers.rfi&&_footRFI[f.no]){ ctx.fillStyle=hexA(RFI_CYAN,.55);ctx.beginPath();rr(ctx,s.x-hw,s.y-hh,hw*2,hh*2,1.5);ctx.fill();ctx.strokeStyle=RFI_CYAN;ctx.lineWidth=2;ctx.stroke(); }   // assigned-footing indicator: flat strong cyan, no per-footing shadow (cheap even for "all")
     const ins=DATA.inspections['foot_'+f.no]; if(ins&&ins.status){ctx.fillStyle=INSP_COL[ins.status]||'#888';ctx.beginPath();ctx.arc(s.x+hw,s.y-hh,3,0,6.2832);ctx.fill();}
     ctx.globalAlpha=1; }
 }
@@ -972,36 +972,35 @@ function drawMarkups(ctx){ for(const [id,m] of Object.entries(DATA.markups)){ if
   if(s.x<-40||s.y<-40||s.x>M.box.w+40||s.y>M.box.h+40)continue;
   ctx.fillStyle='#F59E0B';ctx.beginPath();ctx.moveTo(s.x,s.y-9);ctx.lineTo(s.x+5,s.y-3);ctx.lineTo(s.x+5,s.y);ctx.lineTo(s.x-5,s.y);ctx.lineTo(s.x-5,s.y-3);ctx.closePath();ctx.fill();
   if(m.text){ctx.font="500 10px Inter,sans-serif";const w=ctx.measureText(m.text).width;ctx.fillStyle='rgba(8,11,16,.8)';ctx.beginPath();rr(ctx,s.x+7,s.y-9,w+8,15,3);ctx.fill();ctx.fillStyle='#F5E3A8';ctx.textAlign='left';ctx.fillText(m.text,s.x+11,s.y+1.5);}} }
-// RFIs are AREAS, not pins: each RFI's region = its drawn polygon, else a cyan hull around its assigned
-// footings (like a pour outline). Plus the assigned footings glow cyan (drawFootings). One bad record can't
-// abort the canvas (per-RFI try/catch). Whole layer toggles with M.layers.rfi.
+// RFI areas: a DRAWN region (polygon/box) renders as a flat cyan zone with a small number tag. Footing-type
+// assignments are shown by highlighting the footings themselves (drawFootings) — no big hull blob. Clean, flat,
+// no shadows. Per-RFI try/catch so one bad record can't blank the canvas. Toggles with M.layers.rfi.
 function drawRFIs(ctx){ for(const [id,r] of Object.entries(DATA.rfi)){ try{
-    const poly=rfiWorldPoly(r); if(!poly||poly.length<3)continue;
-    const sel=M.sel&&M.sel.kind==='rfi'&&M.sel.id===id; const pts=poly.map(q=>S(q[0],q[1]));
+    const reg=r.region; if(!Array.isArray(reg)||reg.length<3)continue;
+    const sel=M.sel&&M.sel.kind==='rfi'&&M.sel.id===id; const pts=reg.map(p=>S(p[0]*M.planW,p[1]*M.planH));
     ctx.beginPath();pts.forEach((s,i)=>i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y));ctx.closePath();
-    ctx.fillStyle=hexA(RFI_CYAN,sel?0.34:0.2);ctx.fill();
-    if(sel){ctx.shadowColor=RFI_CYAN;ctx.shadowBlur=14;} ctx.strokeStyle=sel?'#9BFFF6':RFI_CYAN;ctx.lineWidth=sel?2.8:2;ctx.setLineDash(sel?[]:[8,5]);ctx.stroke();ctx.setLineDash([]);ctx.shadowBlur=0;
+    ctx.fillStyle=hexA(RFI_CYAN,sel?0.22:0.13);ctx.fill();
+    ctx.strokeStyle=RFI_CYAN;ctx.lineWidth=sel?2.2:1.5;ctx.stroke();
     let cx=0,cy=0;pts.forEach(s=>{cx+=s.x;cy+=s.y;});cx/=pts.length;cy/=pts.length; const lbl=r.number||'RFI';
-    ctx.font="700 11px Inter,system-ui,sans-serif"; const w=ctx.measureText(lbl).width;
-    ctx.fillStyle='rgba(4,22,28,.95)';ctx.beginPath();rr(ctx,cx-w/2-8,cy-10,w+16,20,7);ctx.fill();ctx.strokeStyle=RFI_CYAN;ctx.lineWidth=1.2;ctx.stroke();
+    ctx.font="600 10px Inter,system-ui,sans-serif"; const w=ctx.measureText(lbl).width;
+    ctx.fillStyle='rgba(6,20,26,.9)';ctx.fillRect(cx-w/2-6,cy-8,w+12,16);
     ctx.fillStyle=RFI_CYAN;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(lbl,cx,cy);ctx.textAlign='left';ctx.textBaseline='alphabetic';
   }catch(_){} } }
-// Live preview while drawing a region: vertices + edges + a rubber-band to the cursor.
+// Live draw preview — flat & simple: a plain cyan rectangle (box) or polyline (polygon). No glow/handles.
 function drawRegionDraft(ctx){ const rd=M.regionDraw; if(!rd)return;
-  if(rd.boxPx){ const p=rd.boxPx,x=Math.min(p[0],p[2]),y=Math.min(p[1],p[3]),w=Math.abs(p[2]-p[0]),h=Math.abs(p[3]-p[1]);   // preview drawn in raw cursor px (no view round-trip) so it tracks the cursor exactly
-    ctx.save();ctx.fillStyle=hexA(RFI_CYAN,.28);ctx.fillRect(x,y,w,h);ctx.shadowColor=RFI_CYAN;ctx.shadowBlur=10;ctx.strokeStyle='#9BFFF6';ctx.lineWidth=2.5;ctx.strokeRect(x,y,w,h);ctx.shadowBlur=0;
-    [[x,y],[x+w,y],[x+w,y+h],[x,y+h]].forEach(c=>{ctx.beginPath();ctx.arc(c[0],c[1],5,0,6.2832);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle=RFI_CYAN;ctx.lineWidth=2;ctx.stroke();});ctx.restore();return; }
-  const pts=rd.pts.map(p=>S(p[0]*M.planW,p[1]*M.planH));
-  if(pts.length>=3){ ctx.beginPath();pts.forEach((s,i)=>i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y));ctx.closePath();ctx.fillStyle=hexA(RFI_CYAN,.12);ctx.fill(); }
-  if(pts.length){ ctx.beginPath();pts.forEach((s,i)=>i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y));
-    if(rd.cur){const cs=S(rd.cur[0]*M.planW,rd.cur[1]*M.planH);ctx.lineTo(cs.x,cs.y);}
-    ctx.strokeStyle=RFI_CYAN;ctx.lineWidth=1.8;ctx.setLineDash([6,4]);ctx.stroke();ctx.setLineDash([]); }
-  pts.forEach((s,i)=>{ ctx.beginPath();ctx.arc(s.x,s.y,i===0?7:6,0,6.2832);ctx.fillStyle=i===0?RFI_CYAN:'#fff';ctx.fill();ctx.strokeStyle=i===0?'#fff':RFI_CYAN;ctx.lineWidth=2;ctx.stroke(); }); }
+  if(rd.boxPx){ const p=rd.boxPx,x=Math.min(p[0],p[2]),y=Math.min(p[1],p[3]),w=Math.abs(p[2]-p[0]),h=Math.abs(p[3]-p[1]);   // raw cursor px so it tracks the cursor exactly
+    ctx.fillStyle=hexA(RFI_CYAN,.13);ctx.fillRect(x,y,w,h);ctx.strokeStyle=RFI_CYAN;ctx.lineWidth=1.5;ctx.strokeRect(x,y,w,h);return; }
+  const pts=rd.pts.map(p=>S(p[0]*M.planW,p[1]*M.planH)); if(!pts.length)return;
+  if(pts.length>=3){ ctx.beginPath();pts.forEach((s,i)=>i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y));ctx.closePath();ctx.fillStyle=hexA(RFI_CYAN,.1);ctx.fill(); }
+  ctx.beginPath();pts.forEach((s,i)=>i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y));
+  if(rd.cur){const cs=S(rd.cur[0]*M.planW,rd.cur[1]*M.planH);ctx.lineTo(cs.x,cs.y);}
+  ctx.strokeStyle=RFI_CYAN;ctx.lineWidth=1.5;ctx.stroke();
+  pts.forEach(s=>{ ctx.beginPath();ctx.arc(s.x,s.y,3.5,0,6.2832);ctx.fillStyle=RFI_CYAN;ctx.fill(); }); }
 
 /* interaction */
 function hitTest(px,py){
   if(M.layers.embeds) for(const [id,p] of Object.entries(DATA.pins)){ if(typeof p.x!=='number')continue; if(M.snapEmbeds&&_pinSnap[id])continue; /* snapped embeds are decorative on the footing — let the footing take the click */ const pp=pinPos(id,p); const s=S(pp.x,pp.y); if((s.x-px)**2+(s.y-py)**2<=196)return{kind:'pin',id,data:p}; }
-  if(M.layers.rfi){ const w=toWorld(px,py); for(const [id,r] of Object.entries(DATA.rfi)){ try{ const poly=rfiWorldPoly(r); if(!poly||poly.length<3)continue; if(pointInPoly(w.wx,w.wy,poly))return{kind:'rfi',id,data:r}; }catch(_){} } }
+  if(M.layers.rfi){ const w=toWorld(px,py); for(const [id,r] of Object.entries(DATA.rfi)){ const reg=r.region; if(!Array.isArray(reg)||reg.length<3)continue; try{ if(pointInPoly(w.wx,w.wy,reg.map(p=>[p[0]*M.planW,p[1]*M.planH])))return{kind:'rfi',id,data:r}; }catch(_){} } }
   if(M.layers.markups) for(const [id,m] of Object.entries(DATA.markups)){ if(typeof m.x!=='number')continue; const s=S(m.x*M.planW,m.y*M.planH); if(px>=s.x-6&&px<=s.x+6&&py>=s.y-10&&py<=s.y+2)return{kind:'markup',id,data:m}; }
   if(M.layers.footings) for(let i=M.footings.length-1;i>=0;i--){ const f=M.footings[i]; if(f.del||f.isBeam)continue; const s=S(f.cx,f.cy),hw=Math.max(3,(f.w/2)*M.view.s),hh=Math.max(3,(f.h/2)*M.view.s); if(px>=s.x-hw-2&&px<=s.x+hw+2&&py>=s.y-hh-2&&py<=s.y+hh+2)return{kind:'foot',id:f.no,data:f}; }
   if(M.layers.pours){ const w=toWorld(px,py); for(const p of Object.values(_poursCache)){ const hull=poolHull(p.id); if(hull&&hull.length>=3&&pointInPoly(w.wx,w.wy,hull))return{kind:'pour',id:p.id,data:p}; } }
@@ -1093,6 +1092,7 @@ function openDetail(hit){
     body=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="width:9px;height:9px;border-radius:2px;background:${col}"></span><span class="mono" style="font-size:13px;font-weight:700">FTG ${f.tag||('#'+f.no)}</span></div>
       <div style="display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:11.5px"><span style="color:#7A8290">Type</span><span>${esc(f.type)}</span><span style="color:#7A8290">Size</span><span>${f.wFt}′×${f.lFt}′ · ${f.thk}″</span><span style="color:#7A8290">Volume</span><span class="mono">${f.cyv} CY</span><span style="color:#7A8290">Pour</span><span>${esc(p?p.name:'Unassigned')}</span></div>
       ${(()=>{ const ids=_footEmb[f.no]||[]; if(!ids.length)return ''; const pills=ids.map(id=>{const e=DATA.pins[id]; if(!e)return ''; const st=pinState(e); const c=(e.stubColumn&&!e.installed)?'#FF9650':PIN_COL[st]; return `<span onclick="openEmbedFromFooting('${esc(id)}')" title="${e.installed?'Installed':'To install'}${e.knifePlate?' · knife plate':''}" style="cursor:pointer;font-size:9px;font-weight:600;padding:2px 7px;border-radius:5px;background:${hexA(c,.16)};color:${c};border:1px solid ${hexA(c,.3)}">${esc(e.embedId||id)}${e.installed?' ✓':''}</span>`;}).join(''); return `<div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.08);padding-top:10px"><div class="mono" style="font-size:10px;color:#7A8290;letter-spacing:.5px;margin-bottom:7px">EMBEDS · ${ids.length}</div><div style="display:flex;flex-wrap:wrap;gap:5px">${pills}</div></div>`; })()}
+      ${(()=>{ const ids=_footRFI[f.no]||[]; if(!ids.length)return ''; const pills=ids.map(id=>{const r=DATA.rfi[id]; if(!r)return ''; return `<span onclick="focusRfi('${esc(id)}')" title="${esc(r.title||'')}" style="cursor:pointer;font-size:9px;font-weight:600;padding:2px 7px;border-radius:5px;background:${hexA(RFI_CYAN,.16)};color:${RFI_CYAN};border:1px solid ${hexA(RFI_CYAN,.35)}">${esc(r.number||'RFI')}</span>`;}).join(''); return `<div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.08);padding-top:10px"><div class="mono" style="font-size:10px;color:${RFI_CYAN};letter-spacing:.5px;margin-bottom:7px">RFIs · ${ids.length}</div><div style="display:flex;flex-wrap:wrap;gap:5px">${pills}</div></div>`; })()}
       ${inspBlock('foot_'+f.no)}
       <a class="btn" style="width:100%;margin-top:12px" href="${APP_URLS.cup}" target="_blank"><span class="ms" style="font-size:15px">open_in_new</span> Edit foundations in CUP</a>`;
   } else if(hit.kind==='pour'){ const p=hit.data,c=POURCOL[p.status]||'#566072';

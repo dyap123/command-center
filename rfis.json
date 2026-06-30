@@ -1,1148 +1,452 @@
 [
   {
-    "number": "RFI-00262.0",
+    "number": "#073 (954)",
+    "title": "Clarifications for Concrete Pier and Pile Cap on X.9-9.1",
+    "status": "Submitted",
+    "viewUrl": ""
+  },
+  {
+    "number": "#072 (961)",
+    "title": "Sequence 3 Construction Joints",
+    "status": "Submitted",
+    "viewUrl": ""
+  },
+  {
+    "number": "#071 (881.1)",
+    "title": "Clarifications Along GL M.8 Foundations",
+    "status": "Submitted",
+    "viewUrl": ""
+  },
+  {
+    "number": "#070 (931)",
+    "title": "Duct Bank & Pile Cap Conflict at GL Q 25",
+    "status": "Submitted",
+    "viewUrl": ""
+  },
+  {
+    "number": "#069 (909)",
+    "title": "Escalator Pit Dimensions and Construction Joints",
+    "status": "Submitted",
+    "viewUrl": ""
+  },
+  {
+    "number": "#068 (877)",
+    "title": "MicroPile Cap Hooked Bars at Embedded Steel Columns",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#067",
+    "title": "Construction Join between Pilecap and Gradebeam",
+    "status": "Submitted",
+    "viewUrl": ""
+  },
+  {
+    "number": "#066 (865)",
+    "title": "Sequence 2 Construction Joints",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#065 (868)",
+    "title": "#10 Rebar Substitution at Pile Caps on W-14 and R-29.4",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#064",
+    "title": "Elevator Pit Curb & Wall Clarification",
+    "status": "Submitted",
+    "viewUrl": ""
+  },
+  {
+    "number": "#063 (854)",
+    "title": "Details on Compressible Foam between Grade Beam and Underground Utility",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#062 (838)",
+    "title": "Grade Beam Redesign at GL N.3 8.5",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#061 (827)",
+    "title": "South Hall Underpining at Exitsing Footing",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#060",
+    "title": "Grout Holes in Welded Steel Strip Around Column Plate",
+    "status": "Draft",
+    "viewUrl": ""
+  },
+  {
+    "number": "#059 (733)",
+    "title": "MicroPile Cap & Grade Beam Schedule per RFI 466.4",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#058.1 (836.1)",
+    "title": "Reinforcing Congestion at Knife Plate Pile Caps",
+    "status": "Submitted",
+    "viewUrl": ""
+  },
+  {
+    "number": "#058 (836)",
+    "title": "Reinforcing Congestion at Knife Plate Pile Caps",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#057 (821)",
+    "title": "South Hall Concrete Infill Clarifications",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#056 (683)",
+    "title": "Holes in Knife Plates for Lateral Bracing",
+    "status": "Void",
+    "viewUrl": ""
+  },
+  {
+    "number": "#055 (670)",
+    "title": "Concrete Plinth Clarifications at Embedded Steel Columns",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#054 (683)",
+    "title": "Drill & Epoxy Into Piles for Knife Plate Bracing",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#053 (633)",
+    "title": "Redesign of PC3E Pile Cap on R.27",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#052 (616)",
+    "title": "ACP Vertical Reinforcing vs Anchor Bolts at PC1 Pile Caps",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#051 (612)",
+    "title": "Concrete Plinth Overlap with Auger Cast Piles at Q.28",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#050 (583)",
+    "title": "Compressible Foam between Pile Caps and Utilities",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#049.1 (581.1)",
+    "title": "Plinth Elevation Clarification at R.27",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#049 (581)",
+    "title": "Redesign of PC3E Pile Cap on SAW-S27.1",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#048 (632)",
+    "title": "Sequence 1 Construction Joints",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#047.2 (779)",
+    "title": "Pile Longitudinals Bars Interrupted by Knife Plate Embeds",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#047.1",
+    "title": "Elevation of Top Reinforcing Installed Below ACP Terminators",
+    "status": "Submitted",
+    "viewUrl": ""
+  },
+  {
+    "number": "#047 (613)",
+    "title": "ACP Vertical Bars vs Pile Cap Top Bars in Sequence 1+",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#045 (558)",
+    "title": "ACP Vertical Reinforcement vs Embedded Steel Elements",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#044 (556)",
+    "title": "Collector Bars in Conflict with Steel Column Studs",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#043 (582)",
+    "title": "Grade Beam Thickening at Knife Plates",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#040 (282.1)",
+    "title": "Pile Cap Thickening to Admit Bottom Bars below Steel Column",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#038 (522.1)",
+    "title": "Revised Geometry for PC3E Pile Caps on S27.1-28 and S28-28",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#036 (529)",
+    "title": "Use of Stay Form at Concrete Plinths",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#035",
+    "title": "Separate Mix Design for Concrete Plinths",
+    "status": "Draft",
+    "viewUrl": ""
+  },
+  {
+    "number": "#034 (497.1)",
+    "title": "XPS Foam Adjacent to Foundations",
+    "status": "Submitted",
+    "viewUrl": ""
+  },
+  {
+    "number": "#033 (478)",
+    "title": "Design Soil Bearing Pressure of Foundations",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#032 (477)",
+    "title": "Merged Pour at P.8 WF1 and GB1",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#031 (474)",
+    "title": "Proposed Use of Concrete Mixes as Backfill at Overexcavated Footings",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#030 (480)",
+    "title": "Constructability of Type PC3E Pile Caps",
+    "status": "Draft",
+    "viewUrl": ""
+  },
+  {
+    "number": "#028 (460)",
+    "title": "ACP Longitudinal Bars vs Stubby Columns on GLs P.8-Q and 28",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#027 (458)",
+    "title": "Proposed Use of 3 Sack Slurry for Backfill at Overexcavated Footings",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#026 (454)",
+    "title": "Drilling Requirement in Detail 14A on S4-6-1",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#025 (449)",
+    "title": "CUP Auger Cast Piles Centered Under Steel Columns",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#024.1 (445.1)",
+    "title": "CUP Float Layer Clarifications",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#024 (445)",
+    "title": "CUP Pile Cap Thickening to Increase Clear Cover for Pile Verts",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#023 (444)",
+    "title": "Use of Spray Foam between Pile Casing",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#022 (443)",
+    "title": "Protruding U-Bar at Pile Cap to Slab on Grade",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#021.2 (553)",
+    "title": "PC15A Bottom Reinforcement vs Auger Cast Piles",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#021 (442)",
+    "title": "Pile Longitudinal Bars vs PC15A Top Bars",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#020 (441)",
+    "title": "Date of Acceptance for Concrete Compressive Strength",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#019",
+    "title": "XPS Insulation as Permanent Backfill Above Foundations",
+    "status": "Submitted",
+    "viewUrl": ""
+  },
+  {
+    "number": "#018 (434.1)",
+    "title": "Clash between PC Top Bar and Pile Verts at Locations with Weldable Couplers",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#017",
+    "title": "Concrete Consolidation at Type X, Type Y, & Type Z Connections",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#016 (432)",
+    "title": "Clerance between Foundation Rebar and Anchor Bolts",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#015",
+    "title": "Potential Undermining of Existing South Hall Foundations",
+    "status": "Void",
+    "viewUrl": ""
+  },
+  {
+    "number": "#014 (435)",
+    "title": "Restrictions for Free Fall of Concrete",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#010 (401)",
+    "title": "Additional Shear Reinforcing Detail for P.231 Foundation",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#009 (394)",
+    "title": "Request to Enlarge Type A,B, and C Embed Plates",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#008 (386)",
+    "title": "Request to Abandon Geofoam Installed Against Shoring Wall",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#007.3 (377.3)",
+    "title": "Interrupted Reinforcing at Knife Plate Embeds",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#007.2 (377.2)",
+    "title": "Weldable Coupler Layout Clarifications",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#007.1 (377.1)",
+    "title": "Revised Rebar Layout at Pile Caps with Added Weldable Couplers",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#007 (377)",
+    "title": "Interrupted Reinforcing at Knife Plate Embeds",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#006 (387)",
+    "title": "Concrete Placement over Weatherization Base",
+    "status": "Submitted",
+    "viewUrl": ""
+  },
+  {
+    "number": "#005 (328)",
+    "title": "Slurry Backfill at Over Excavated Foundations",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#004.2 (291.2)",
+    "title": "Sequence 0 Construction Joints R2",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#004.1 (291.1)",
+    "title": "Sequence 0 Construction Joints & Stay Form CJ's R1",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#004 (291)",
+    "title": "Sequence 0 Construction Joints & Stay Form CJ's",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#003 (282)",
+    "title": "Plinth Height Conflict at Steel Column Base",
+    "status": "Returned",
+    "viewUrl": ""
+  },
+  {
+    "number": "#002 (262)",
     "title": "New Detail View for South Hall Footing with Duct Bank Conflict",
-    "status": "Open",
-    "viewUrl": "https://drive.google.com/file/d/16eLvhKqGQ3IeWxoovpBlSCDr_lYt0kcw/view"
+    "status": "Returned",
+    "viewUrl": ""
   },
   {
-    "number": "RFI-00260.0",
-    "title": "Cast In Place Anchor Bolt Substitution Request",
-    "status": "Open",
-    "viewUrl": "https://drive.google.com/file/d/1Of_OYoyLYJk7dDskSfqpE3J56L170C1T/view"
-  },
-  {
-    "number": "RFI-00259.0",
-    "title": "PC3E Pile Cap Reinforcement Configuration Clarification",
-    "status": "Open",
-    "viewUrl": "https://drive.google.com/file/d/1x8CDLJg6Jh4Oct7ipnQo2WPmjDVXm8-s/view"
-  },
-  {
-    "number": "RFI-00248.0",
-    "title": "Request to Use HRC 555 End Anchors in Lieu of Standard Hooks for Shear Wall Vertical Bars",
-    "status": "Open",
-    "viewUrl": "https://drive.google.com/file/d/1OzQWv8buxnej3YTmWDKlbCoiLiDrX9kL/view"
-  },
-  {
-    "number": "RFI-00238.0",
-    "title": "Spread_Continuous Footing Slurry Zone of Influence Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1nMn-XwaoYxIHGmJRBd3_ZZrkgaOs4YGM/view"
-  },
-  {
-    "number": "RFI-00233.0",
-    "title": "- Vault 1508 - Structural Loads_Dimensions for Existing Columns",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1HVLZKagPfn5Ab-obTISOIgDrrf7DkHgc/view"
-  },
-  {
-    "number": "RFI-00231.0",
-    "title": "Pico Hall Expansion - Beam Locating Dimensions at Lobby Opening (Levels 270 & 325)",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1sCFy7hBoPkUARXwCTHfqS5IcoRBX7eQ0/view"
-  },
-  {
-    "number": "RFI-00227.0",
-    "title": "Pico Hall Expansion - Temp Generator Cores",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1iE_ehydl7FP65r3pVZWnQXf-KgV_A5iP/view"
-  },
-  {
-    "number": "RFI-00224.0",
-    "title": "South Ramp - Proposed Wall Reinforcement Configuration in Lieu of Detail 1_S7-1-41-SR",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/151qSutY9gCc97ms4sLn-LOrPPBpUvAzj/view"
-  },
-  {
-    "number": "RFI-00223.0",
-    "title": "Pico Hall Expansion - Catwalk Railings Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1it1Cj-RlSdypE71VpYjls5sWmY_RWK9w/view"
-  },
-  {
-    "number": "RFI-00221.0",
-    "title": "South Ramp - Plate thickness Substitution",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/13ayxz_Uk2A8ErRixwHCghRElTmPNenCc/view"
-  },
-  {
-    "number": "RFI-00218.0",
-    "title": "Pico Hall - Anchor Rod Embedment Elevation at Grade Beam _ Pile Cap Interface",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1vPJDtrw3kpF9z06Y7fvGwbQlH6FbulS6/view"
-  },
-  {
-    "number": "RFI-00217.0",
-    "title": "South Hall - Top of Steel Elevation for BFE-1 and BFE-2",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1GGLsTj_SiSQEH6-oMuhgHbwFUu3eV7ga/view"
-  },
-  {
-    "number": "RFI-00215.0",
-    "title": "South Hall - Missing Weld Details for Built-Up I-Shape and Side Plate Connections",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1CdOVZ48C20NDPy1JglpnNemvD3syxnHk/view"
-  },
-  {
-    "number": "RFI-00213.0",
-    "title": "Pico Hall Expansion - Top of Steel Elevation Confirmation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1ugA3uMPN0NU6pV2XbML8Tk_HuNEXahnA/view"
-  },
-  {
-    "number": "RFI-00212.0",
-    "title": "South Ramp - Allowable Dead Load Deflection - Curved Slab Edge",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1ar8IfvB-sOTNdEHBE7zOCLE9r9bCje7V/view"
-  },
-  {
-    "number": "RFI-00211.0",
-    "title": "South Ramp - Clarification of Steel Beam Supports for Overspan Deck Conditions",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/11jgoJej4J69sb0KQJ4FXmbkoOv-RRmlg/view"
-  },
-  {
-    "number": "RFI-00209.0",
-    "title": "South Hall - Missing Framing Detail on Level 270 Area C",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1u0TpsaKATu8F9Llxk5ViDUyzjtWlom4T/view"
-  },
-  {
-    "number": "RFI-00208.0",
-    "title": "South Hall - Brace Frame Intersection",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1mOup6K8YfRu-qSmnv_p8sOx0mCNyLQdd/view"
-  },
-  {
-    "number": "RFI-00205.0",
-    "title": "South Ramp - Use of Slurry in Lieu of Gravel at South Ramp SOG",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1Y6Mxv159PDp8zs2McGa9oV7vCOBxMDqc/view"
-  },
-  {
-    "number": "RFI-00202.0",
-    "title": "South Hall - South Hall Brace Frame As-Built Confirmation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1GegM12hZWT3NGEPbLKmjNykhk6Ka1RhT/view"
-  },
-  {
-    "number": "RFI-00201.0",
-    "title": "Pico Hall Expansion - Missing Embedment, Uplift Plate and Grout Information",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1IMk00rEZOKIMWIFG1VP0_AZLClX8a4E4/view"
-  },
-  {
-    "number": "RFI-00199.0",
-    "title": "Pico Hall Expansion - BRB Connections to Trusses",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/12jQycCYT3VgEzS6LE5SCA-JsRTcKQ_13/view"
-  },
-  {
-    "number": "RFI-00197.0",
-    "title": "Pico Hall Expansion - Beam locating dimensions",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1wfsw5YZ_15gJJsDfvA3V8TJB393qalku/view"
-  },
-  {
-    "number": "RFI-00196.0",
-    "title": "Pico Hall Expansion - Camber Dimension Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/15Em0kOuppaEzSwmLO3ucLSuOo4q2shl7/view"
-  },
-  {
-    "number": "RFI-00193.1",
-    "title": "South Hall - Slab Elevation at Grid SAK.8",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1mEGL21hNR9QIac-rhUOa27yvNwn4P0Cd/view"
-  },
-  {
-    "number": "RFI-00192.0",
-    "title": "Northerly-Easterly Coordinates off WH Gridlines Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1bswbiHutL333lc9s7hEfOeFszmK5kxkG/view"
-  },
-  {
-    "number": "RFI-00191.0",
-    "title": "South Ramp - Foundation Shift Due to Unforeseen Concrete Obstruction",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/17OXQY-C5TGvvWvY5rHHo2may2X-19P5-/view"
-  },
-  {
-    "number": "RFI-00189.0",
-    "title": "Pico Hall Expansion - Alternate Connection for SCBF Gusset Plates",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1eHnKAzJbWmbS7JKyQ-iGXBK-IyMUsQsQ/view"
-  },
-  {
-    "number": "RFI-00188.0",
-    "title": "Pico Hall Expansion - Beam Profile Confirmation at Level 250",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1hgzLnCF9v0sDWrXgSbbq3WIrR6rSqr55/view"
-  },
-  {
-    "number": "RFI-00187.0",
-    "title": "Pico Hall Expansion - Missing Locating Dimensions for Beam",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1cT68nWlcE_ljerIBPyjWaCJOiq7n4vAW/view"
-  },
-  {
-    "number": "RFI-00186.0",
-    "title": "Pico Hall Expansion - Pile Cap PC4G Location Discrepancy",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/12Y8TgG_AeruSPaaz8scxTZIO1hA0Qw2P/view"
-  },
-  {
-    "number": "RFI-00183.0",
-    "title": "Pico Hall Expansion - Beam Dimension Locations at Level 230",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1Sg9FRhSAdZ3LWIhBswvB2xfeh9gxzDX_/view"
-  },
-  {
-    "number": "RFI-00182.0",
-    "title": "Pico Hall Expansion - Anchor Rod Embedment and Footing Depth Discrepancy",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1Md_KvkfxNqEyM5ABCiVK1qUyj01xljBo/view"
-  },
-  {
-    "number": "RFI-00181.0",
-    "title": "Pico Hall Expansion - Column Elevation at Level 230",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1okZmICYHxxgB7htz5V8vdW9Qn34_kdIo/view"
-  },
-  {
-    "number": "RFI-00179.0",
-    "title": "Pico Hall Expansion - Embed Plate Length",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1bfXHlWKPQAOzQ8IJSRIAXn9d6DSqtXdq/view"
-  },
-  {
-    "number": "RFI-00178.0",
-    "title": "West Hall Demo & Alterations - Decrease Embedment Depth at Top of Wall Connection",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1uUDefGR8WN0MitNckmSZ4NAaWzWmD9tR/view"
-  },
-  {
-    "number": "RFI-00177.0",
-    "title": "Pico Hall Expansion - Concourse Hall - IDF Room Cores",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/12ohENFy4_SGFwA1h7mcOZR7ODO2n2dbn/view"
-  },
-  {
-    "number": "RFI-00176.0",
-    "title": "South Hall Demo & Alterations - Solar Conduit Cores Location Approval",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1wyLXDkxBsSMkYnBPLoMCMu_hJyHMpnS6/view"
-  },
-  {
-    "number": "RFI-00175.0",
-    "title": "South Hall - Slab Opening Pour-Back Detail",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1fMaxYUffWOMeIMrBPLY5v4AO9FUx5L_O/view"
-  },
-  {
-    "number": "RFI-00174.0",
-    "title": "Pico Hall Expansion - Clarification on Column Splice Elevation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1KIjUdl7vA_uQQZxFtWT1CPV_Pm59JJMp/view"
-  },
-  {
-    "number": "RFI-00172.0",
-    "title": "Pico Hall Expansion - Splice Details for Beams Exceeding Mill Length",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1joMMJ9m9SAw9E54uqFr4nofbc19aoBe2/view"
-  },
-  {
-    "number": "RFI-00170.0",
-    "title": "Pico Hall Expansion - Embed Beam Clash With Anchor Bolts",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1ByF9cbx2I3p_a4KAtcNCmlQ6jEflzkp6/view"
-  },
-  {
-    "number": "RFI-00169.1",
-    "title": "Pico Hall Expansion - Clarification on Truss Chord Connection Type",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1DVvxBoLlodSqq04k9XFj01GpCvzHFQIy/view"
-  },
-  {
-    "number": "RFI-00168.0",
-    "title": "South Ramp - Clarification on Angle Size Substitution",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1euVxaSONICAQGwIvjOIpnspb4xYblvR3/view"
-  },
-  {
-    "number": "RFI-00167.0",
-    "title": "Pico Hall Expansion - Clarification On Bent Plate Splice Weld",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/107OU8h-TulV6tBKRVI7Z8HcSs8s612qQ/view"
-  },
-  {
-    "number": "RFI-00162.0",
-    "title": "Pico Hall - PC15A Bottom Reinforcement Verification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1Xckw3qVSB5ePOPJVzARbdfjxkRYaNQoa/view"
-  },
-  {
-    "number": "RFI-00161.0",
-    "title": "Pico Hall - Foundation Reinforcement Layering Verification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1Puz2HjaHxAKKzdmtz_bLM6ipSN-qPZZX/view"
-  },
-  {
-    "number": "RFI-00159.0",
-    "title": "Pico Hall - Clarification on Existing Footing Dimensions for Micro Pile Cap Details A-R",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1qmbByXJSoX_MAXJ_Uzil1Y9YIm9SYzSu/view"
-  },
-  {
-    "number": "RFI-00158.0",
-    "title": "Pico Hall - Pile Caps PC4G and PC2K Size Verification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1fgZtyUr8RUX_ge9d1dy_XQqzOMqtCz_M/view"
-  },
-  {
-    "number": "RFI-00157.0",
-    "title": "Pico Hall - Use of HRC 670 End Anchors for Bars Penetrating Existing Footings",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/19E6Bczp-7OSihQ0xbTGpMc7V6WiK-I4-/view"
-  },
-  {
-    "number": "RFI-00156.0",
-    "title": "South Ramp - Clarification on Expansion Joint at Vertical Side Walls - South Ramp",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1A058vTQ-yGUv08iBpJG5mgc5gOrmn1IP/view"
-  },
-  {
-    "number": "RFI-00154.0",
-    "title": "West Hall Demo & Alterations - Wall Alterations Proposed Wall and SOG Construction Joint",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1TYejgjIQINscEUxH7PW42U4OdU4Lirls/view"
-  },
-  {
-    "number": "RFI-00153.0",
-    "title": "- Shop Temp Power Cores",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1gqsf7nUyBeFI2wMA3F_KVJ5Oje0q_2Vq/view"
-  },
-  {
-    "number": "RFI-00152.1",
-    "title": "South Ramp - Confirmation of Weld Acceptability for Deck Support Plates",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1YLUTHwZ9Qg_VB8ovQJ_bbjhmE2gigEgh/view"
-  },
-  {
-    "number": "RFI-00151.1",
-    "title": "South Hall Demo & Alterations - L235 Area H & P South Hall CHW Coring Locations Confirmation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1Prmd-hyyTC70EdoW8f3RK61xEkGqFt9f/view"
-  },
-  {
-    "number": "RFI-00150.0",
-    "title": "Pico Hall Expansion - Connection Clash C14 vs. C8",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1c3V3JP3LndAPa4ZMFeadk-6HCPKCtjDC/view"
-  },
-  {
-    "number": "RFI-00148.0",
-    "title": "Pico Hall Expansion - Edge of Slab Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1od9FqPljdKIvfmvhHQjfviVPtHjrZqYN/view"
-  },
-  {
-    "number": "RFI-00147.0",
-    "title": "Pico Hall Expansion - Clarification on Moment Connection for Beams with Unequal Depths",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1SHzEEG9OcZbzB38dKwPoiBPM9nJeGauT/view"
-  },
-  {
-    "number": "RFI-00146.0",
-    "title": "Pico Hall Expansion - Missing Dimension on sheet S2-21",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1CuJ6JU94-hlHsSyfYhM9_SN8sIiPvfx5/view"
-  },
-  {
-    "number": "RFI-00145.0",
-    "title": "Fire Command Center - Concrete Stem Wall Height Verifications",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1y8I3VSzxK3ggRXp8ZcOxnw1bDyq-5Y2l/view"
-  },
-  {
-    "number": "RFI-00143.0",
-    "title": "Site Underground - Pico Blvd Storm Drain Tie-In Invert Discrepancy - Sheet C1.63",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1klCgi6Z_ppGpnuAT_D8LNVZBc5dNGDaB/view"
-  },
-  {
-    "number": "RFI-00141.0",
-    "title": "Site Underground - Pico Blvd Sanitary Sewer Tie-In - Fitting and Top Hat Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1N8LmUNvU7gs6l-9u7yEuiohVvnr5eF6d/view"
-  },
-  {
-    "number": "RFI-00140.0",
-    "title": "Pico Hall Expansion - Bolt Spacing Adjustment",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1CtwIVWN7uiUz27i2Rsgno8q2GwqAM0lu/view"
-  },
-  {
-    "number": "RFI-00139.0",
-    "title": "Site Underground - LADWP Water CLSM Mix Confirmation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1SxIDbn3jhpmrpds_1gUaQsnSdChSufUN/view"
-  },
-  {
-    "number": "RFI-00138.0",
-    "title": "South Ramp - South Temp Ramp Reinforcement Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/16eHaAKNUcrhINuInSWZvR4HRScYi2sHB/view"
-  },
-  {
-    "number": "RFI-00137.0",
-    "title": "Site Underground - Convention Center Drive Traffic Loop Relocation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1wbU-mJxlU2A98bvuVxv4wWFEZcanfYZS/view"
-  },
-  {
-    "number": "RFI-00136.0",
-    "title": "Site Underground - New 60in Storm Drain RCP Utility Relocations Confirmation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1oR43KnReAEBzP-rBXuqOZXXHfUmygNaC/view"
-  },
-  {
-    "number": "RFI-00135.0",
-    "title": "Pico Hall Expansion - Bolt Spacing Modification at W24-W33 Beam Connection",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/11bX5edQO8-hJnXr49DKFoF9EVq4J2keN/view"
-  },
-  {
-    "number": "RFI-00134.0",
-    "title": "South Ramp - Clarification on Anchor Rod Debonding Materials (Polyethylene Tape & PVC Sleeve)",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1jTW43pbJdQDJNoVguqCGGXPXelA6o0Mg/view"
-  },
-  {
-    "number": "RFI-00133.0",
-    "title": "South Hall - Slab Elevation Variation at Grid SAK.8 - Request for Confirmation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1oftbPLhZEF7dNMToYr7XU_X_i8AcXlG1/view"
-  },
-  {
-    "number": "RFI-00132.0",
-    "title": "Pico Hall Expansion - Beam C13 - Bolt Distance Exceeding Maximum Allowable Dimension",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1PFQ3QBS_hLRz2vLEmmsFbW_-xtSkeEfF/view"
-  },
-  {
-    "number": "RFI-00131.0",
-    "title": "Pico Hall Expansion - Level 250 Area C Beam Connection",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1V1JNpXsEUbQz2thHUkI2ywgnp2EEPnGy/view"
-  },
-  {
-    "number": "RFI-00130.0",
-    "title": "Pico Hall Expansion - Clarification on Embed Plate Elevation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/18sd1RmaqNsXKvTco39VHhFNYyB4FHeBZ/view"
-  },
-  {
-    "number": "RFI-00129.0",
-    "title": "Pico Hall Expansion - Column Splice Plate",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1SSKSbCzQIkHecgnqjFZAQdIfV5YfbhZm/view"
-  },
-  {
-    "number": "RFI-00128.0",
-    "title": "Pico Hall Expansion - Confirmation of Embed Plate Connection Criteria and Stud Placement",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1bZwB9T5OVLYdU2qnpwabnrGmvkJE2ub9/view"
-  },
-  {
-    "number": "RFI-00127.0",
-    "title": "West Hall Non-Ductile Concrete - Top of New Column Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1NciCwkQ3el6xw86l8W3CEd6u1J9vMGO2/view"
-  },
-  {
-    "number": "RFI-00125.0",
-    "title": "Pico Hall Expansion - Clarification on Concrete Plinth and Base Plate Dimensions",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1Gsa0UkCo6wccMPPaGedkp1JuJF2mx397/view"
-  },
-  {
-    "number": "RFI-00124.0",
-    "title": "Pico Hall Expansion - Clarification on Plate Washer Welds and Anchor Rod Adjustments for Baseplate Types 2A, 2B, 2C, and 7",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1JBnnRoqwcbqn7PJG-4rPyuCvVpMqJJCB/view"
-  },
-  {
-    "number": "RFI-00123.0",
-    "title": "Site Underground - Phase 2 B Permit Drawings Issuance Clarification - BR005041 Sheet 3 of 3",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/15CHdUKLTmqjeOK-8ihp_YRLeKYaet5x8/view"
-  },
-  {
-    "number": "RFI-00121.0",
-    "title": "West Hall Non-Ductile Concrete - New Wall Width Verification at Existing Beam",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1tfJV9r855UbRpHy8VgRmMShYgTDT1mZV/view"
-  },
-  {
-    "number": "RFI-00120.0",
-    "title": "Site Underground - LA Live Way DW Backflow Connection Clarification - Sheet C1.53",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1of68ZX8KanG2rwct3MRqAInEJ7vrjV-V/view"
-  },
-  {
-    "number": "RFI-00118.0",
-    "title": "Site Underground - LADWP Fire Hydrant, Water Meter, & Irrigation Meter Details Confirmation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/19U8pscAkC51QMGsxEZ8g89USbjQhIhhC/view"
-  },
-  {
-    "number": "RFI-00117.0",
-    "title": "Site Underground - 18_ Storm Drain POCs Invert Clarifications - Sheets C1.63 & C1.64",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/16dmfoLcwJ6uPXpI_dXjU6PWrbQH7u7T9/view"
-  },
-  {
-    "number": "RFI-00116.0",
-    "title": "Site Underground - Civil CAD v. 100%DD Drawings Discrepancies",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1rpwZnskA5JGHtCv4nQ2RUCJglaeE7K8m/view"
-  },
-  {
-    "number": "RFI-00113.0",
-    "title": "Site Underground - 18_ Storm Drain Pipe Invert Elevation Clarification - Sheet C1.62",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1Q8VHh9MdV6rIgvHqUw4ZGUN4dLi87NKY/view"
-  },
-  {
-    "number": "RFI-00112.0",
-    "title": "Pico Hall Expansion - Clarification on Drag Strut (DS) Connection Details",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1hiI20O_-oqggY7sSmdBwKELKkooVie5A/view"
-  },
-  {
-    "number": "RFI-00111.0",
-    "title": "Pico Hall Expansion - Clarification on Connection Type at W14 Beam",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1Hnl2WhGJnbNsyMr58rxrG3xUXvpS9HGh/view"
-  },
-  {
-    "number": "RFI-00110.0",
-    "title": "Pico Hall Expansion - Dimension for Truss Vertical Member Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/11LmnUebuNngYOZ7G2ajXjzpcsLSlE3sP/view"
-  },
-  {
-    "number": "RFI-00109.0",
-    "title": "South Ramp - Clarification on Skew Weld Requirements at C8 Connection Locations",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/13v724EjhZI7-5V8jM6iyQlkWRLlkRtyk/view"
-  },
-  {
-    "number": "RFI-00108.0",
-    "title": "South Hall Demo & Alterations - Clarification on Weld Feasibility Between 5_8_ Continuous Plate and Horizontal Strut Beam",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1pTAxs47W80P9zyC6cFgqQntJR8w0dlTA/view"
-  },
-  {
-    "number": "RFI-00107.0",
-    "title": "Pico Hall Expansion - Clarification on Stud Quantity and Side Plate Termination at Base Plate",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1UgtGNog-N-bYFHcgJW-G_R7tgIUlP2kM/view"
-  },
-  {
-    "number": "RFI-00106.0",
-    "title": "Pico Hall Expansion - Request for Maximum Allowable Dimension for Vertical_Diagonal Placement with Required Clearance",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1xZYPY2pIotO8kZ62FDDnQDIyRGpa8fIh/view"
-  },
-  {
-    "number": "RFI-00105.0",
-    "title": "Pico Hall Expansion - Request for Alternative Connection and Weld Details for Beam Intersection and Skewed Shear Plates",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/10JqbXQmo31eC4aZUFucJC1VO7V7M-ZDA/view"
-  },
-  {
-    "number": "RFI-00104.0",
-    "title": "Pico Hall Expansion - Edge of Slab and Section Details",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/16B1AsOR35JsUTxcWj2MIYsd6SPh-m7uK/view"
-  },
-  {
-    "number": "RFI-00103.0",
-    "title": "Pico Hall Expansion - Request for Missing Beam and Post Locating Dimensions at Multiple Levels",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1BuCCAKTCSCcQh1x89qpfAgJCyuL3yKVe/view"
-  },
-  {
-    "number": "RFI-00102.0",
-    "title": "Pico Hall Expansion - Request for Connection Parameters and Details for SCBF and Hanger Connections",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1ZOk5wsZNurMdPz70529jVQU956bvChcQ/view"
-  },
-  {
-    "number": "RFI-00101.0",
-    "title": "Pico Hall Expansion - Confirmation of Oversize Hole Allowance for High-Strength Bolts",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1roTYwQBoNc4oZ9ZfDNtg6BjBjZ2KjsP_/view"
-  },
-  {
-    "number": "RFI-00100.0",
-    "title": "Pico Hall Expansion - Request for Bottom Elevations and Connection Details for Specified Hangers",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1fFvrl3ImfnlBM8IkexF6Ql341xBW9RZ9/view"
-  },
-  {
-    "number": "RFI-00099.0",
-    "title": "Pico Hall Expansion - Missing Expansion Joint (EJA-Type) Dimension",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1oBM4lQTtXKvWQTSmjzDx6MKRvr6dlJ8x/view"
-  },
-  {
-    "number": "RFI-00098.0",
-    "title": "- West Hall Wall Vertical and Horizontal Bar Placement Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1svl89ogzcxOw2fZ8CmH3dbEpgRKrgf3S/view"
-  },
-  {
-    "number": "RFI-00097.0",
-    "title": "- West Hall Micropile Cap Schedule Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1tQRSUcRskoV2deHEIowNmnBJBZzqPr_M/view"
-  },
-  {
-    "number": "RFI-00096.0",
-    "title": "Pico Hall Expansion - Missing Kicker Brace Connection Detail",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/14Sz0w0BY_zqIUc5yo8CUU6eKlFGex7lB/view"
-  },
-  {
-    "number": "RFI-00095.0",
-    "title": "Pico Hall Expansion - Clarification of Marked Wall location for Steel Placement",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1hvchw7dQAZIYQJBCncJnGnrJJ4urm7dJ/view"
-  },
-  {
-    "number": "RFI-00094.0",
-    "title": "Pico Hall Expansion - Top of Wall Stud Clearance at Embed Plate Location",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1N3-5XsAOfUDCwPTqNDyDaL1FNTe7uiXg/view"
-  },
-  {
-    "number": "RFI-00093.0",
-    "title": "South Hall - Dimension Required for Cooling Tower and Vertical Brace",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1Yx37QZ8W1H9kqA06Ivuk1s1dz6Uq4B_z/view"
-  },
-  {
-    "number": "RFI-00092.0",
-    "title": "South Hall - Elevation for Horizontal Brace",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/139AKXNcB_0zd5cXFdrSJEFoWg88HWDae/view"
-  },
-  {
-    "number": "RFI-00091.0",
-    "title": "Pico Hall Expansion - Connection for Vertical and Horizontal Angle Brace",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1DE9VBwsvkEL4SpXY0M_n4fDop6-YHAD6/view"
-  },
-  {
-    "number": "RFI-00090.0",
-    "title": "Pico Hall Expansion - Chord Splice Detail for Diagonals & Verticals",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1ApBl1hi4DmMLGwq-d9VU8sslOUa8cLsX/view"
-  },
-  {
-    "number": "RFI-00089.0",
-    "title": "Pico Hall Expansion - Missing Beam Size at Clouded Location",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1i2bPG2Iz-Hp9wkRbZbUr7UrJxwAGcK_0/view"
-  },
-  {
-    "number": "RFI-00087.0",
-    "title": "Pico Hall Expansion - Request for Beam and Infill Beam Locating Dimensions",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1bEIaq_mZm39G7rUPmCHzT3CBRTct96XY/view"
-  },
-  {
-    "number": "RFI-00086.0",
-    "title": "Pico Hall Expansion - Anchor Rod Embedment Missing Detail",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1ap4tI620_PNKPVX5z0k5t5YzWSNZ1xgs/view"
-  },
-  {
-    "number": "RFI-00085.0",
-    "title": "Pico Hall - Locating Dimensions of Opening Beam",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1ga3_Y8TsQKcKNyS8a8izuWdLi77Pc_nh/view"
-  },
-  {
-    "number": "RFI-00084.0",
-    "title": "South Hall Demo & Alterations - Request for Confirmation of Revised Angle Connection Details",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1iulMJ7fm21EiNW2NGHeGeY4QK3euvHce/view"
-  },
-  {
-    "number": "RFI-00083.0",
-    "title": "Pico Hall Expansion - Request for Top of Steel Elevations and Confirmation of HSS Member Elevation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1jDkEUTo7wJebj-3rtn3LMCjBL_DA3mcA/view"
-  },
-  {
-    "number": "RFI-00082.0",
-    "title": "Pico Hall Expansion - Request for Slab Edge Dimensions and Clarification on Slope Continuity",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1a3l7NcoOQ93GAPkrnYTvrby1Sp5npv6c/view"
-  },
-  {
-    "number": "RFI-00080.0",
-    "title": "Pico Hall Expansion - Wall Details and Section Reference",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/14XWIUx7CuAyprvLwTttJ1Dt-t1DzMo23/view"
-  },
-  {
-    "number": "RFI-00079.0",
-    "title": "Pico Hall Expansion - Request for Beam Locating Dimensions at Lobby Openings",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1pt51z9D04adjtA3G-t3McsKwXdkCfGNu/view"
-  },
-  {
-    "number": "RFI-00078.1",
-    "title": "South Ramp - Confirmation of Revised Top of Steel Elevations and Slope",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1BjeWj6lefXXhqd_3vje8upmxE5fsEZfB/view"
-  },
-  {
-    "number": "RFI-00077.0",
-    "title": "Pico Hall Expansion - Beam Elevation Conflict and Missing Top-of-Slab Information",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1vDpjhDyGg_G37acVfyipPqgJAIW4RhfY/view"
-  },
-  {
-    "number": "RFI-00076.0",
-    "title": "Site Underground - Clarification on Sewer Laterals and Required Permits - Sheets C1.53 & C1.54",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/16Jpl6nAF55m8Spz6mPriIATmwhpQ24Gm/view"
-  },
-  {
-    "number": "RFI-00075.0",
-    "title": "Pico Hall Expansion - Post Elevations, Connection Details, and Section Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1l0Y1S0K7ew5r_tMwm67AnRuL-_RpLENg/view"
-  },
-  {
-    "number": "RFI-00074.0",
-    "title": "Pico Hall Expansion - Required Dimensions for Beam & Top of Steel Elevation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1Ke1BmQmV42utf-rRUwarf-k-mNyvvhi2/view"
-  },
-  {
-    "number": "RFI-00073.0",
-    "title": "Pico Hall Expansion - Beam Profiles Confirmation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1Hn59N3xEcF4PGZhMAJ9EpZRI2_hGoUaG/view"
-  },
-  {
-    "number": "RFI-00072.0",
-    "title": "South Hall Demo & Alterations - Clarification of Radial Grid Dimensions and Locations",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1W9PUXYxYtzTpptrzDXr5knSBaXM-YML-/view"
-  },
-  {
-    "number": "RFI-00071.0",
-    "title": "Site Underground - Clarification on CDS Units - Sheets C1.62 & C1.63",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/10R1maJhR7ZxkVPajQh6-omLsVSBKZsJi/view"
-  },
-  {
-    "number": "RFI-00070.0",
-    "title": "Pico Hall Expansion - Level 250 Slope Confirmation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/18Qsh8shyIiTsXoPllvzH4QolJa_9qToH/view"
-  },
-  {
-    "number": "RFI-00069.0",
-    "title": "Pico Hall Expansion - Beam Opening for Floor and Roof Profile Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1OgoNCBv5MksAA2v_7MXVtr_9J2lHtqis/view"
-  },
-  {
-    "number": "RFI-00067.0",
-    "title": "Pico Hall Expansion - Details for typical fall arrest post",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1PERRAsl2cfBOTdtqcetiTtoqf6s7NTWS/view"
-  },
-  {
-    "number": "RFI-00066.0",
-    "title": "Pico Hall Expansion - Plate Thickness and Weld Information",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1xaFRlnzrEwT2ebZarPcXHuEC-mbMV4-8/view"
-  },
-  {
-    "number": "RFI-00065.0",
-    "title": "Pico Hall Expansion - Truss Splice Location & Dimension Confirmation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1znIgMrKbFb2Xd3RYJXXGUiBhhvDNtyfL/view"
-  },
-  {
-    "number": "RFI-00064.0",
-    "title": "Pico Hall Expansion - Clarification of Brace Detail at Roof Level",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1k7wHoG6EUaFJBVMrF8hIKsDtnp7VsZww/view"
-  },
-  {
-    "number": "RFI-00062.0",
-    "title": "West Hall Demo & Alterations - GB Longitudinal Reinforcement Embedment at Adjacent Footings",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/13cIz4aePFZEAEZkny32iJj198EFf4OZe/view"
-  },
-  {
-    "number": "RFI-00061.0",
-    "title": "West Hall Demo & Alterations - Alternative Stirrup Configuration at Grade Beams",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1eKAuqZX7aR_wOBiI1X9hrZqcDm_eQ9CC/view"
-  },
-  {
-    "number": "RFI-00060.0",
-    "title": "West Hall Demo & Alterations - GB-2 Grade Beam Width Verification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/10PDGDrU9y9SSGNtCb08m2aNMaAlAD7gG/view"
-  },
-  {
-    "number": "RFI-00059.0",
-    "title": "West Hall Demo & Alterations - HRC555 at Grade Beam Longitudinal Bars",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1j-345lIjSsn4BREscGQsjLGf5W9yz9ZW/view"
-  },
-  {
-    "number": "RFI-00056.0",
-    "title": "Pico Hall - Pico Hall - Drag Strut Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1KBbGnty3qPlUWstK7HHM6kq6QZxZpYHy/view"
-  },
-  {
-    "number": "RFI-00055.0",
-    "title": "Pico Hall - Pico Hall - Roof Ridge Point",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1QuiL_GcDMmyELc0TyhfBpPr2StQLm9vK/view"
-  },
-  {
-    "number": "RFI-00054.0",
-    "title": "South Hall - South Hall - Beam Profile Confirmation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/15yWHQU0HyOhnYBdIj-vwYv4k2DCDuk7J/view"
-  },
-  {
-    "number": "RFI-00053.0",
-    "title": "Pico Hall - Beam Support Clarifications",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1XENPuJ3x6kMHFAEUgfGWXDsyHP73RlT8/view"
-  },
-  {
-    "number": "RFI-00052.0",
-    "title": "South Hall Demo & Alterations - Steel Column Encasement Tie Config",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1O_Bsgn0AvbRZwFhBJHB8dDfYGPliYV0u/view"
-  },
-  {
-    "number": "RFI-00051.0",
-    "title": "South Hall Demo & Alterations - Use of 180 Deg Hooks and HRC555 Heads at Footing Shearpins",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1ORfq6uveq_MvKlq1VNDQcK7U_Jxac5PE/view"
-  },
-  {
-    "number": "RFI-00050.0",
-    "title": "West Hall Demo & Alterations - Request for use of Uni-Ties",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1ESIJ26qcVduEavlH4GKR4rSXP6ZiJFwD/view"
-  },
-  {
-    "number": "RFI-00049.0",
-    "title": "South Ramp - End Anchors in Lieu of Hooks at Temp Ramp",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1U03AhSdr9KDKsGNN6ssFp3VNFwSybULN/view"
-  },
-  {
-    "number": "RFI-00048.0",
-    "title": "South Ramp - Temp Ramp Foundation U Bars at Edge of Footings",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/10TmVZdzgqZMYKYoh-bY5jr3iYCRY2VrK/view"
-  },
-  {
-    "number": "RFI-00047.0",
-    "title": "Site Underground - Storm Drain - Pico Blvd SD Tie-In Permit Confirmation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1s1mf1XazJtzcddDpOfjBuzP84ncW_4hG/view"
-  },
-  {
-    "number": "RFI-00046.0",
-    "title": "Site Underground - Storm Drain - Convention Center Dr. Manhole Permit Confirmation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1uF950-FKvWGOQYp18S-6UDdy9O_RqVw5/view"
-  },
-  {
-    "number": "RFI-00045.0",
-    "title": "Pico Hall Expansion - S. Hall Exp - Top of Steel Elevations",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1h3dnL_GWiCkoKO6fd5h6L53-n23QKvEU/view"
-  },
-  {
-    "number": "RFI-00044.0",
-    "title": "Pico Hall - Pico Hall Truss Profiles",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1WI7XtEa3Zha8lf6XbeGDseSZ-OWIVxh6/view"
-  },
-  {
-    "number": "RFI-00043.0",
-    "title": "Pico Hall Expansion - Pico Exp. - Truss Locating Dimensions",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/14xbtu2N0j0UAaFQKUBVzEoUUXRMiMIRK/view"
-  },
-  {
-    "number": "RFI-00042.0",
-    "title": "Site Underground - Storm Drain - Convention Center Drive Drywell Unknown Utility Conflict",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/182PG7NcuIwfOdX7TjCeCbvySxd6g-rW0/view"
-  },
-  {
-    "number": "RFI-00041.1",
-    "title": "South Ramp - South Ramp Pedestal U-Bar Embed Footing Depth Conflict",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1qNI-YStQ7rokGK1TlNiG8nS6s2Boi3iv/view"
-  },
-  {
-    "number": "RFI-00040.0",
-    "title": "South Ramp - South Ramp Concrete Pedestal Shear Pin Reinforcement",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1RzaYArQivjshDkJpZEUSyYU_UUxFtrGK/view"
-  },
-  {
-    "number": "RFI-00039.0",
-    "title": "Site Underground - Cleanout Callout Note Clarification - Cleanout on Sheet C1.63",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1MIcOZSC8E7xm5AfUVtf9kj8HfG3woumz/view"
-  },
-  {
-    "number": "RFI-00038.0",
-    "title": "Site Underground - South Hall Drive - Storm Drain Pipe Size Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1zPqlTFHkroUK2jBlx6YpLlvdjvGzZspG/view"
-  },
-  {
-    "number": "RFI-00037.0",
-    "title": "Site Underground - Convention Center Dr. Drywell Invert and Rim - Elevation Discrepancy",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1YAvcrKkVZHkA_iVgNj_DdIZ7-DLaE2W8/view"
-  },
-  {
-    "number": "RFI-00036.0",
-    "title": "Site Underground - Sanitary Sewer - Cleanout Material Substitution",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1D2G9cMb3wL8rY36YHqkv2MAEtWZmp8rc/view"
-  },
-  {
-    "number": "RFI-00035.0",
-    "title": "Site Underground - Clarification on Sewer Pipe Type and Cleanout Location - Pico Blvd Public ROW",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1vymNwM8pB1LWu_UMwfFmDu01XaYcJtDp/view"
-  },
-  {
-    "number": "RFI-00034.0",
-    "title": "Site Underground - Reinforced Concrete Pipe Size Revision - 20 to 24",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/17D2SbEBxrprK4S6ksNXBQgMg5q20A0Tc/view"
-  },
-  {
-    "number": "RFI-00033.0",
-    "title": "Site Underground - Reinforced Concrete Pipe Size Revision - 57 to 60",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/14Z2ZZc9U86oSx312lfjQvrTbgMPBqtp5/view"
-  },
-  {
-    "number": "RFI-00032.0",
-    "title": "Site Underground - 15th Drive Drywell Unknown Utility Conflict",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1l-kGABnjwoX75TpeqaxllZKpZxaXn7W4/view"
-  },
-  {
-    "number": "RFI-00031.0",
-    "title": "Pico Hall - Missing Structural Sheets",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1vdq7okNo0KggYYlsTKJcf-MT_R-CuimD/view"
-  },
-  {
-    "number": "RFI-00030.0",
-    "title": "Pico Hall Expansion - Arch_Sturct Gridline Discrepancy",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1p4jNWub1m95FququOIVZcw-C9lZZx81_/view"
-  },
-  {
-    "number": "RFI-00029.0",
-    "title": "South Hall Demo & Alterations - Existing Members at Temp Brace Frame",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1ymNtnKaP4_aZlxjjXyixjclwEOqNSMFV/view"
-  },
-  {
-    "number": "RFI-00028.0",
-    "title": "Pico Hall Expansion - HSS Size Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1LV4Nh5kgvj2_ajWwlTNQIim84oGRelFV/view"
-  },
-  {
-    "number": "RFI-00026.0",
-    "title": "South Hall Demo & Alterations - CJP Weld at Temp Brace Frame",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1n7VyuCStNKO5J4pBXizZrGqMMOSq0LSn/view"
-  },
-  {
-    "number": "RFI-00025.0",
-    "title": "Pico Hall Expansion - Dead Load Shortening - C",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1e7VBTG_2X5vhNrvnu_zp4GQPBDtoeuht/view"
-  },
-  {
-    "number": "RFI-00024.0",
-    "title": "South Ramp - Bolt Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/11AIHJTTuzke20hgBcZ9t3xas-v_II1YF/view"
-  },
-  {
-    "number": "RFI-00023.0",
-    "title": "South Ramp - Grid Line Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1ZmZtZMZvR0mQZzwU2eoE-2411L2GRTgz/view"
-  },
-  {
-    "number": "RFI-00022.0",
-    "title": "South Ramp - Beam Upsizing",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1bf3cWIfQPkneNGtB-sN29zrrpOaZcy5X/view"
-  },
-  {
-    "number": "RFI-00021.0",
-    "title": "South Ramp - Bolted Connections ILO Welded at Brace Frame Intersections",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1s23pONCcTlP0jaAV1e2AYESlHIMhMNNk/view"
-  },
-  {
-    "number": "RFI-00020.0",
-    "title": "South Ramp - Top of Beam Elevation Clarifications",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1ps3qEV2TjV1SihxEbnJoNj7PA0BQcwca/view"
-  },
-  {
-    "number": "RFI-00019.0",
-    "title": "South Ramp - Stiffener Plate Weld Detail",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1aDXOhDeHCdRlGDUy18U-fNircarU3JY9/view"
-  },
-  {
-    "number": "RFI-00018.0",
-    "title": "South Ramp - Bolted Connections ILO Welded Connections",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1G7bK328b55HdW11TxGfAyZezSl9FeI2h/view"
-  },
-  {
-    "number": "RFI-00017.0",
-    "title": "South Ramp - Elevation Clarifications",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1QOX0yrC2MZRQYwX3Ze9vno3tRHUHNeYJ/view"
-  },
-  {
-    "number": "RFI-00016.0",
-    "title": "South Ramp - Base Plate Rotation Clashes",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1Qqtne_BshKE4tV2dmOMo3b1htkeRXv9q/view"
-  },
-  {
-    "number": "RFI-00015.0",
-    "title": "South Ramp - Corner Geometry Clarification - C",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1srZjBDI21VhWsh7dqxRTbwyNGsLoqgV6/view"
-  },
-  {
-    "number": "RFI-00014.0",
-    "title": "South Ramp - Design Clarifications for Flange Interference, Skewed Connections, and Weld Constraints",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1ItDvDc_45Rzt5a85TUxp9A94vTEgIOXg/view"
-  },
-  {
-    "number": "RFI-00013.0",
-    "title": "South Ramp - Bent Plate Connection in lieu of Shear Tab",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1lFti3d4sIm4RhWI_YXSWiaLEK983U6cJ/view"
-  },
-  {
-    "number": "RFI-00012.0",
-    "title": "South Ramp - Added Plate to Beam to Beam Moment Connection",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1yH0MXRFnl8lZNpapdhRfUX73pVaM5GJ4/view"
-  },
-  {
-    "number": "RFI-00011.0",
-    "title": "South Ramp - Gusset Plate Clash with Column Flange",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/19mfyY4H2EX8yYoqhNSIZ6QTh92R57dY9/view"
-  },
-  {
-    "number": "RFI-00010.0",
-    "title": "South Ramp - Requirements for Plate Thickness for Type C8 Connection",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1ksIsti7KIDAeyuc6ZjpU_nfewTsdNvRE/view"
-  },
-  {
-    "number": "RFI-00009.0",
-    "title": "South Ramp - W21x44 6_ Offset for Constructability",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1tVOO_mKC7ct6mS-nWUavQ2Xf07JUaFG2/view"
-  },
-  {
-    "number": "RFI-00008.0",
-    "title": "South Ramp - Type C7 Connection Clarification",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1V8eJsS9Wfo5SFKKjK2smUZk0vaOetjfy/view"
-  },
-  {
-    "number": "RFI-00007.0",
-    "title": "South Ramp - Type C8 Beam Connection Eccentricity",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1TQt2OioPq6S_FwoaY90HmQ-hYY0YBWAu/view"
-  },
-  {
-    "number": "RFI-00006.0",
-    "title": "South Ramp - Type C6 Beam to Column Shear Connection",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/11n9O0Etxb5IrRD3NPfmigWUKjRzgn9pe/view"
-  },
-  {
-    "number": "RFI-00005.0",
-    "title": "South Ramp - TC Bolts and Snapped Bolts vs. Snug-Tight Installation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1iI8Ff6SHsu2pfKyyvtcFrYcg5sfEUy-1/view"
-  },
-  {
-    "number": "RFI-00004.0",
-    "title": "South Ramp - Grout Thickness Increase for Anchors",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1FRb_A3ln-3pUKw6aAmJ6Adgjh_gIJ77p/view"
-  },
-  {
-    "number": "RFI-00003.0",
-    "title": "South Ramp - Detail 17_S7-1-23 SR Embedment Depth",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1zxC7ZZrqiJvXV0-PMk_s7fnkeCAYEDTv/view"
-  },
-  {
-    "number": "RFI-00002.0",
-    "title": "South Ramp - Typical 2-Brace Base Plate Stud Spacing",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1auzlAqB3PLSUFfoZgRqb5A9VCvRdmnUo/view"
-  },
-  {
-    "number": "RFI-00001.0",
-    "title": "South Ramp - Upsized Anchor Rod Diameter Confirmation",
-    "status": "Closed",
-    "viewUrl": "https://drive.google.com/file/d/1MInzhe0n0dTgJ3noA9yesZ8uDKDea0qG/view"
+    "number": "#001 (327)",
+    "title": "Proposed Pile Cap Repair Procedures",
+    "status": "Returned",
+    "viewUrl": ""
   }
 ]

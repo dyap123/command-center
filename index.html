@@ -775,7 +775,9 @@ function renderDock(){ const dock=document.getElementById('dock'); if(!dock)retu
     </div>
     <div style="border-top:1px solid rgba(255,255,255,.06);padding:13px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span class="mono" style="font-size:9.5px;color:#5B636F;letter-spacing:1px">DRIVE RFIs</span><span class="ms" style="font-size:14px;color:#5B636F">help</span></div>
-      <div style="font-size:10px;color:#7A8290;margin-bottom:9px">Click a chip to assign it to footings / draw its region.${can('rfiEdit')?'':' Press <b>L</b> to unlock editing first.'} Drag the bottom edge ↕ to resize.</div>
+      <div style="font-size:10px;color:#7A8290;margin-bottom:9px">Search, then click a chip to assign it to footings / draw its region.${can('rfiEdit')?'':' Press <b>L</b> to unlock editing first.'} Drag the bottom edge ↕ to resize.</div>
+      <div style="position:relative;margin-bottom:8px"><span class="ms" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:15px;color:#7A8290;pointer-events:none">search</span>
+        <input class="fld" oninput="rfiTraySearch(this.value)" value="${esc(_rfiTrayQ)}" placeholder="Search RFI number or subject…" style="width:100%;padding:7px 9px 7px 30px;font-size:12px"></div>
       <div id="rfitray" style="display:flex;flex-direction:column;gap:7px;height:220px;min-height:80px;max-height:62vh;overflow:auto;resize:vertical"></div>
       ${can('rfiEdit')?`<button class="ghostbtn" style="width:100%;justify-content:center;margin-top:8px" onclick="addRfiManual()"><span class="ms" style="font-size:15px">add</span> Add RFI manually</button>`:''}
     </div>`;
@@ -784,19 +786,24 @@ function renderDock(){ const dock=document.getElementById('dock'); if(!dock)retu
 function renderRfiTray(){ const host=document.getElementById('rfitray'); if(!host)return;
   // remember the user's resized tray height across renders
   if(!host._roOn){ host._roOn=true; const sv=()=>{try{if(host.style.height)localStorage.setItem('cc_rfitrayH',host.style.height);}catch(_){}}; try{new ResizeObserver(sv).observe(host);}catch(_){} const sh=(()=>{try{return localStorage.getItem('cc_rfitrayH');}catch(_){return null;}})(); if(sh)host.style.height=sh; }
-  const placed=new Set(Object.values(DATA.rfi).map(r=>r.number)); const avail=RFI_DRIVE.filter(r=>!placed.has(r.number));
-  if(!avail.length){ host.innerHTML=`<div style="text-align:center;padding:12px;font-size:11px;color:#5B636F">${RFI_DRIVE.length?'All RFIs pinned ✓':(/^https/.test(RFI_API_URL)?'Loading…':'Connect the RFI Apps Script to auto-list.')}</div>`; return; }
+  const all=rfiAvail();
+  if(!all.length){ host.innerHTML=`<div style="text-align:center;padding:12px;font-size:11px;color:#5B636F">${RFI_DRIVE.length?'All RFIs pinned ✓':(/^https/.test(RFI_API_URL)?'Loading…':'Connect the RFI Apps Script to auto-list.')}</div>`; return; }
+  const list=rfiTrayList();
+  if(!list.length){ host.innerHTML=`<div style="text-align:center;padding:12px;font-size:11px;color:#5B636F">No RFIs match “${esc(_rfiTrayQ)}”.</div>`; return; }
   const pill=s=>{const c=(typeof RFI_STAT_COL!=='undefined'&&RFI_STAT_COL[s])||(s==='Open'?'#EF4444':s==='Answered'?'#F59E0B':'#3B82F6');return `font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:2px 6px;border-radius:5px;color:${c};background:${hexA(c,.14)}`;};
-  host.innerHTML=avail.slice(0,40).map((r,i)=>`<div onpointerdown="rfiChipDown(event,${i})" title="Drag onto the plan to draw its region — or click to set footings" style="display:flex;align-items:center;gap:9px;padding:8px 9px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:9px;cursor:grab;user-select:none;touch-action:none">
+  host.innerHTML=list.slice(0,40).map((r,i)=>`<div onpointerdown="rfiChipDown(event,${i})" title="Drag onto the plan to draw its region — or click to set footings" style="display:flex;align-items:center;gap:9px;padding:8px 9px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:9px;cursor:grab;user-select:none;touch-action:none">
     <span class="ms" style="font-size:14px;color:#7A8290">drag_indicator</span>
     <div style="flex:1;min-width:0"><div class="mono" style="font-size:11px;font-weight:650;color:#C9BBFF">${esc(r.number)}</div><div style="font-size:10px;color:#9AA3B0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.title||'')}</div></div>
-    <span style="${pill(r.status)}">${esc(r.status||'')}</span></div>`).join('');
+    <span style="${pill(r.status)}">${esc(r.status||'')}</span></div>`).join('') + (list.length>40?`<div style="text-align:center;font-size:10px;color:#5B636F;padding:4px">+${list.length-40} more — refine search</div>`:'');
 }
 function rfiAvail(){ const placed=new Set(Object.values(DATA.rfi).map(r=>r.number)); return RFI_DRIVE.filter(r=>!placed.has(r.number)); }
+let _rfiTrayQ='';
+window.rfiTraySearch=function(v){ _rfiTrayQ=v; renderRfiTray(); };
+function rfiTrayList(){ const q=(_rfiTrayQ||'').trim().toLowerCase(); const l=rfiAvail(); return q?l.filter(r=>((r.number||'')+' '+(r.title||'')+' '+(r.status||'')).toLowerCase().includes(q)):l; }
 // Tray chip: DRAG onto the plan → create the RFI + start drawing its region (seeded at the drop point).
 // CLICK (no drag) → open the assign/settings modal. Pointer capture keeps the drag reliable over the canvas.
 let _chipDrag=null;
-window.rfiChipDown=function(e,i){ const rfi=rfiAvail()[i]; if(!rfi)return; e.preventDefault(); const el=e.currentTarget||e.target;
+window.rfiChipDown=function(e,i){ const rfi=rfiTrayList()[i]; if(!rfi)return; e.preventDefault(); const el=e.currentTarget||e.target;
   _chipDrag={i,rfi,sx:e.clientX,sy:e.clientY,moved:false,ghost:null,el,pid:e.pointerId};
   try{el.setPointerCapture(e.pointerId);}catch(_){}
   el.onpointermove=rfiChipMove; el.onpointerup=rfiChipUp; el.onpointercancel=rfiChipUp; };
@@ -808,7 +815,7 @@ function rfiChipUp(e){ const d=_chipDrag; _chipDrag=null; if(!d)return; if(d.gho
   try{d.el.releasePointerCapture(d.pid);}catch(_){} d.el.onpointermove=null;d.el.onpointerup=null;d.el.onpointercancel=null;
   let overMap=false; if(_cv){const r=_cv.getBoundingClientRect();overMap=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;}
   if(d.moved&&overMap){ _cvRect=null; const r=cvRect(); const f=toFrac(e.clientX-r.left,e.clientY-r.top); createRfiAndDraw(d.rfi,[+f.fx.toFixed(4),+f.fy.toFixed(4)]); }
-  else assignDriveRfi(d.i); }
+  else assignDriveRfi(d.rfi); }
 function createRfiAndDraw(rfi,firstPt){ if(!requireRfiEdit(()=>createRfiAndDraw(rfi,firstPt)))return; const id=ccPush('rfi',null).key;
   const rec={number:rfi.number||'RFI',title:rfi.title||'',status:rfi.status||'Open',viewUrl:rfi.viewUrl||'',cover:rfi.cover||null,appliesTo:{all:false,families:[],codes:[]},by:ME.name||ME.email,at:Date.now()};
   DATA.rfi[id]=rec; if(onMap()){renderRfiTray();renderLayerPanel();} ccSet('rfi/'+id,rec).catch(e=>toast(e.message,'err'));
@@ -1193,11 +1200,11 @@ function saveRfiScope(id){ const scope=rfiScopeValue(),sel=document.getElementBy
 window.saveRfiScope=saveRfiScope;
 /* Assign a Drive RFI to an area: footing types (auto cyan tint). A drawn region can be added after. No pins. */
 let _assignRfi=null;
-function assignDriveRfi(i){ if(!requireRfiEdit(()=>assignDriveRfi(i)))return; const rfi=rfiAvail()[i]; if(!rfi)return; if(!M.base)buildGeo(); _assignRfi=rfi; rfiScopeReset(null);
+function assignDriveRfi(ref){ const rfi=(ref&&typeof ref==='object')?ref:rfiAvail()[ref]; if(!rfi)return; if(!requireRfiEdit(()=>assignDriveRfi(rfi)))return; if(!M.base)buildGeo(); _assignRfi=rfi; rfiScopeReset(null);
   openModal(`<div style="font-size:16px;font-weight:650;margin-bottom:2px;display:flex;align-items:center;gap:7px"><span class="ms" style="color:${RFI_CYAN}">help</span>Assign ${esc(rfi.number||'RFI')}</div>
     <div style="font-size:12px;color:#7A8290;margin-bottom:12px">Mark the footing types this RFI covers — they’ll tint cyan on the map. You can draw a freeform region after.</div>
     <div style="font-size:12px;font-weight:600;margin-bottom:6px">Status</div>
-    <select class="fld" id="aS" style="width:100%;margin-bottom:12px"><option ${rfi.status==='Open'?'selected':''}>Open</option><option ${rfi.status==='Answered'?'selected':''}>Answered</option><option ${rfi.status==='Closed'?'selected':''}>Closed</option></select>
+    <select class="fld" id="aS" style="width:100%;margin-bottom:12px">${['Submitted','Returned','Draft','Void','Open','Answered','Closed'].map(s=>`<option ${rfi.status===s?'selected':''}>${s}</option>`).join('')}</select>
     <div style="font-size:12px;font-weight:600;margin-bottom:8px">Applies to footing types</div>${RFI_SCOPE_BOX}
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn" onclick="saveAssignRfi(true)"><span class="ms" style="font-size:15px;color:${RFI_CYAN}">gesture</span>Assign & draw region</button><button class="btn primary grad" onclick="saveAssignRfi()">Assign</button></div>`);
   renderRfiScope(); }
@@ -1210,7 +1217,7 @@ window.saveAssignRfi=saveAssignRfi;
 function addRfiManual(){ if(!requireRfiEdit(()=>addRfiManual()))return; if(!M.base)buildGeo(); rfiScopeReset(null); openModal(`<div style="font-size:16px;font-weight:650;margin-bottom:4px">Add RFI manually</div>
   <div style="font-size:12px;color:#7A8290;margin-bottom:12px">Stores the link + the area it covers. Draw a region afterward from “Edit area”.</div>
   <input class="fld" id="rN" placeholder="RFI number" style="width:100%;margin-bottom:8px"><input class="fld" id="rT" placeholder="Subject" style="width:100%;margin-bottom:8px">
-  <input class="fld" id="rU" placeholder="Drive link" style="width:100%;margin-bottom:8px"><select class="fld" id="rS" style="width:100%;margin-bottom:8px"><option>Open</option><option>Answered</option><option>Closed</option></select>
+  <input class="fld" id="rU" placeholder="Drive link" style="width:100%;margin-bottom:8px"><select class="fld" id="rS" style="width:100%;margin-bottom:8px"><option>Submitted</option><option>Returned</option><option>Draft</option><option>Void</option></select>
   <input class="fld" id="rC" type="file" accept="image/*" style="width:100%;margin-bottom:10px">
   <div style="font-size:12px;font-weight:600;margin-bottom:8px">Applies to</div>${RFI_SCOPE_BOX}
   <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary grad" onclick="saveRfiManual()">Save</button></div>`);
@@ -1253,7 +1260,7 @@ function rfiActiveRow([id,r]){ const ed=can('rfiEdit'),scope=scopeSummary(r.appl
     </div>
     <button class="ghostbtn" style="padding:5px 10px;font-size:11px" onclick="focusRfi('${id}')" title="Show this RFI's area on the map"><span class="ms" style="font-size:14px;color:${RFI_CYAN}">my_location</span>Show on map</button>
     ${ed?`<button class="ghostbtn" style="padding:5px 10px;font-size:11px" onclick="editRfiScope('${id}')"><span class="ms" style="font-size:14px;color:${RFI_CYAN}">tune</span>Edit area</button>${rfiIconBtn('delete','Delete RFI entirely (removes it everywhere)',`removeRfi('${id}')`)}`:''}
-    <a href="${esc(r.viewUrl||'#')}" target="_blank" class="ghostbtn" style="padding:5px 7px" title="Open in Drive"><span class="ms" style="font-size:16px;color:${RFI_CYAN}">open_in_new</span></a>
+    ${r.viewUrl?`<a href="${esc(r.viewUrl)}" target="_blank" class="ghostbtn" style="padding:6px 13px;font-size:12px" title="Open the RFI document in Drive"><span class="ms" style="font-size:16px;color:${RFI_CYAN}">open_in_new</span>View</a>`:`<span style="font-size:10.5px;color:#5B636F;padding:6px 6px">no file</span>`}
   </div>`; }
 let _rfiQuery='';
 window.rfiSearch=function(v){ _rfiQuery=v; renderRfiList(); };
@@ -1267,7 +1274,7 @@ function rfiHTML(){ const all=Object.entries(DATA.rfi), avail=rfiAvail(), ed=can
       <span class="mono" style="font-size:12px;color:${RFI_CYAN};flex-shrink:0">${esc(r.number)}</span><span style="${rfiPillStyle(r.status)}">${esc(r.status)}</span>
       <div style="flex:1;min-width:0;font-size:11px;color:#9AA3B0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.title||'')}</div>
       ${ed?`<button class="ghostbtn" style="padding:5px 11px;font-size:11px" onclick="assignDriveRfi(${i})"><span class="ms" style="font-size:14px;color:${RFI_CYAN}">add_task</span>Assign area</button>`:''}
-      <a href="${esc(r.viewUrl||'#')}" target="_blank" style="color:${RFI_CYAN};font-size:11.5px;flex-shrink:0">view</a>
+      ${r.viewUrl?`<a href="${esc(r.viewUrl)}" target="_blank" class="ghostbtn" style="padding:6px 13px;font-size:12px;flex-shrink:0" title="Open the RFI document in Drive"><span class="ms" style="font-size:16px;color:${RFI_CYAN}">open_in_new</span>View</a>`:`<span style="font-size:10.5px;color:#5B636F;flex-shrink:0;padding:6px 5px">no file</span>`}
     </div>`;
   const listHTML=all.filter(([id,r])=>rfiMatchQ(r));
   return `<div style="padding:24px;max-width:1080px;margin:0 auto;animation:oyFade .35s ease">

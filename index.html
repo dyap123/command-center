@@ -57,6 +57,8 @@
   .pill{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:2px 6px;border-radius:5px}
   .ghostbtn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:7px 11px;color:#C7CDD6;font-size:11.5px;cursor:pointer}
   .ghostbtn:hover{background:rgba(255,255,255,.08)}
+  /* iPad / touch: bigger map-tool hit targets (≥44px) and roomier buttons */
+  @media (pointer:coarse){ #maptools .ghostbtn{width:44px!important;height:44px!important;} .ghostbtn{padding:9px 13px;} }
   .seg{display:flex;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:2px}
   .segbtn{padding:5px 12px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;color:#7A8290;border:0;background:transparent}
   .segbtn.on{background:rgba(139,92,246,.18);color:#C9BBFF}
@@ -202,6 +204,8 @@ const STATE={
   schedView:null,
 };
 function setS(patch){ Object.assign(STATE,patch); }
+// Sidebar starts collapsed if the user collapsed it before, or (no preference yet) on a narrow/tablet screen.
+try{ const pref=localStorage.getItem('cc_rail_collapsed'); STATE.railCollapsed = pref==='1' || (pref===null && window.matchMedia('(max-width:820px)').matches); }catch(_){ STATE.railCollapsed=false; }
 
 /* ---- LIVE DATA ------------------------------------------------------------ */
 const DATA={ footEdits:{},footingPours:{},cupPours:{},poursUser:{},etZones:{},pins:{},grid:null,
@@ -285,10 +289,10 @@ function realPour(z){ return z && ( z.name || z.cy || z.area || z.sequence!=null
 function refreshPours(){ const out={};
   Object.entries(DATA.cupPours||{}).forEach(([id,z])=>{ if(realPour(z)) out[id]=normPour(id,z); });
   Object.entries(DATA.etZones||{}).forEach(([id,z])=>{ if(/WCG|Pours/.test(z.layer||'')&&realPour(z)) out[id]=Object.assign(out[id]||{},normPour(id,z)); });
-  _poursCache=out; if(onMap()){renderDock();renderLayerPanel();repaint();} softUpdate(); }
+  _poursCache=out; if(onMap()){renderDock();renderLayerPanel();repaint();} cupReact(); softUpdate(); }
 function normPour(id,z){ let pts=null;
   if(Array.isArray(z.points)&&z.points.length>=3)pts=z.points; else if(typeof z.x==='number'&&typeof z.w==='number')pts=[[z.x,z.y],[z.x+z.w,z.y],[z.x+z.w,z.y+z.h],[z.x,z.y+z.h]];
-  return { id, name:z.name||('Pour '+id), status:z.status||'PENDING', area:z.area||'', sequence:(z.sequence!=null?z.sequence:z.pour)||'', cy:z.cy||0, mix:z.mix||null, date:z.pour_date||z.date||'', pts }; }
+  return { id, name:z.name||('Pour '+id), status:z.status||'PENDING', area:z.area||'', sequence:(z.sequence!=null?z.sequence:z.pour)||'', cy:z.cy||0, mix:z.mix||null, date:z.pour_date||z.date||'', time:z.time||'', pts }; }
 const onMap=()=>STATE.screen==='app'&&STATE.activeTab==='map';
 function softUpdate(){ if(STATE.activeTab==='dashboard'&&STATE.screen==='app') renderBody(); }
 
@@ -413,21 +417,24 @@ function renderApp(){
 }
 function renderRail(){
   const rail=document.getElementById('rail'); if(!rail)return;
-  rail.style.cssText=`width:${STATE.chatOpen?'298px':'224px'};flex-shrink:0;height:100%;background:rgba(255,255,255,.02);border-right:1px solid rgba(255,255,255,.06);backdrop-filter:blur(12px);display:flex;flex-direction:column;padding:16px 12px;z-index:5;transition:width .26s cubic-bezier(.4,0,.2,1)`;
+  const col=!!STATE.railCollapsed;
+  rail.style.cssText=`width:${col?'62px':(STATE.chatOpen?'298px':'224px')};flex-shrink:0;height:100%;background:rgba(255,255,255,.02);border-right:1px solid rgba(255,255,255,.06);backdrop-filter:blur(12px);display:flex;flex-direction:column;padding:16px ${col?'8px':'12px'};z-index:5;transition:width .26s cubic-bezier(.4,0,.2,1)`;
   const nav=NAV.filter(n=>!n.adminOnly||realRoleKey()==='admin').map(n=>{ const locked=navLocked(n.key); const active=STATE.activeTab===n.key&&!locked;
-    return `<div onclick="${locked?'':`go('${n.key}')`}" style="display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:10px;margin:2px 0;cursor:${locked?'default':'pointer'};color:${locked?'#5B636F':active?'#fff':'#A6AEBB'};background:${active?'linear-gradient(90deg,rgba(139,92,246,.16),rgba(59,130,246,.06))':'transparent'};border:1px solid ${active?'rgba(139,92,246,.22)':'transparent'};opacity:${locked?.6:1}">
+    return `<div onclick="${locked?'':`go('${n.key}')`}" title="${esc(n.label)}" style="display:flex;align-items:center;gap:11px;padding:9px ${col?'0':'11px'};${col?'justify-content:center;':''}border-radius:10px;margin:2px 0;cursor:${locked?'default':'pointer'};color:${locked?'#5B636F':active?'#fff':'#A6AEBB'};background:${active?'linear-gradient(90deg,rgba(139,92,246,.16),rgba(59,130,246,.06))':'transparent'};border:1px solid ${active?'rgba(139,92,246,.22)':'transparent'};opacity:${locked?.6:1}">
       <span class="ms" style="font-size:18px;opacity:${locked?.4:active?1:.7}">${n.icon}</span>
-      <span style="flex:1;font-size:13px;font-weight:${active?650:500}">${n.label}</span>
+      ${col?'':`<span style="flex:1;font-size:13px;font-weight:${active?650:500}">${n.label}</span>
       ${locked?`<span class="ms" style="font-size:14px;color:#5B636F">lock</span>`:''}
-      ${n.badge&&!locked?`<span class="pill" style="color:#22C55E;background:rgba(34,197,94,.15);font-size:8px">${n.badge}</span>`:''}</div>`;}).join('');
-  rail.innerHTML=`<div style="display:flex;align-items:center;gap:11px;padding:6px 8px 16px">${brandMark(30)}
-      <div style="font-size:15px;font-weight:700;letter-spacing:-.2px">Open<span style="font-weight:500;color:#9AA3B0">Yap</span></div></div>
+      ${n.badge&&!locked?`<span class="pill" style="color:#22C55E;background:rgba(34,197,94,.15);font-size:8px">${n.badge}</span>`:''}`}</div>`;}).join('');
+  rail.innerHTML=`<div onclick="toggleRail()" title="${col?'Expand menu':'Collapse menu'}" style="display:flex;align-items:center;gap:11px;padding:6px ${col?'0':'8px'} 16px;${col?'justify-content:center;':''}cursor:pointer">${brandMark(30)}
+      ${col?'':`<div style="font-size:15px;font-weight:700;letter-spacing:-.2px;flex:1">Open<span style="font-weight:500;color:#9AA3B0">Yap</span></div><span class="ms" style="font-size:18px;color:#5B636F">left_panel_close</span>`}</div>
     <div style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">
-      <div class="mono" style="font-size:9.5px;color:#5B636F;letter-spacing:1px;padding:6px 10px 4px">OPERATIONS</div>
+      ${col?'':`<div class="mono" style="font-size:9.5px;color:#5B636F;letter-spacing:1px;padding:6px 10px 4px">OPERATIONS</div>`}
       <div style="overflow-y:auto;overflow-x:hidden">${nav}</div><div style="flex:1"></div></div>
     <div id="copilot"></div>`;
   renderCopilot();
 }
+function toggleRail(){ STATE.railCollapsed=!STATE.railCollapsed; try{localStorage.setItem('cc_rail_collapsed',STATE.railCollapsed?'1':'0');}catch(_){}; renderRail(); if(onMap())setTimeout(fitMap,300); }
+window.toggleRail=toggleRail;
 function renderTopbar(){
   const tb=document.getElementById('topbar'); if(!tb)return;
   tb.style.cssText=`height:60px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;padding:0 22px;gap:16px;background:rgba(11,14,19,.6);backdrop-filter:blur(10px);z-index:6`;
@@ -711,7 +718,7 @@ function renderMap(b){
         <div style="position:absolute;inset:0;background:radial-gradient(ellipse 58% 56% at 50% 46%,rgba(74,100,140,.22),rgba(44,60,86,.07) 46%,transparent 72%);pointer-events:none"></div>
         <canvas id="mapcanvas" style="position:absolute;inset:0;cursor:grab;touch-action:none"></canvas>
         <div style="position:absolute;top:30px;right:18px;display:flex;flex-direction:column;align-items:center;gap:2px;color:#5B636F;pointer-events:none"><span class="ms" style="font-size:18px">navigation</span><span class="mono" style="font-size:9px">N</span></div>
-        <div style="position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:6px">
+        <div id="maptools" style="position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:6px">
           <button id="panModeBtn" class="ghostbtn" style="width:36px;height:34px;justify-content:center;padding:0;${M.scrollMode==='pan'?'background:rgba(139,92,246,.22);color:#fff':''}" title="Pan tool (V) — scroll to pan" onclick="setScrollMode('pan')"><span class="ms" style="font-size:18px">pan_tool</span></button>
           <button id="zoomModeBtn" class="ghostbtn" style="width:36px;height:34px;justify-content:center;padding:0;${M.scrollMode==='zoom'?'background:rgba(139,92,246,.22);color:#fff':''}" title="Zoom tool (Z) — scroll to zoom" onclick="setScrollMode('zoom')"><span class="ms" style="font-size:18px">zoom_in</span></button>
           <div style="height:1px;background:rgba(255,255,255,.12);margin:1px 4px"></div>
@@ -836,6 +843,11 @@ window.finishRegionDraw=finishRegionDraw;
 function clearRfiRegion(id){ if(!can('rfiEdit'))return; if(DATA.rfi[id])delete DATA.rfi[id].region; if(onMap())repaint(); closeDetail(); M.sel=null;
   ccRef('rfi/'+id+'/region').remove().then(()=>{toast('Region cleared','ok');if(STATE.activeTab==='rfis')renderBody();}).catch(e=>toast(e.message,'err')); }
 window.clearRfiRegion=clearRfiRegion;
+// Take an RFI OFF the map (clear its drawn region + footing assignment) but KEEP the RFI in the list.
+function removeRfiFromMap(id){ if(!requireRfiEdit(()=>removeRfiFromMap(id)))return; const r=DATA.rfi[id]; if(!r)return;
+  const empty={all:false,families:[],codes:[]}; delete DATA.rfi[id].region; DATA.rfi[id].appliesTo=empty; buildFootRFI(); closeDetail(); M.sel=null; if(onMap()){renderLayerPanel();repaint();}
+  ccUpdate('rfi/'+id,{region:null,appliesTo:empty}).then(()=>{toast('Removed from map · still in RFI list','ok');if(STATE.activeTab==='rfis')renderBody();}).catch(e=>toast(e.message,'err')); }
+window.removeRfiFromMap=removeRfiFromMap;
 /* World bounds of an RFI: its drawn region, else the footings it's assigned to. */
 function regionBounds(r){ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9,has=false;
   if(Array.isArray(r.region)&&r.region.length){ r.region.forEach(p=>{const wx=p[0]*M.planW,wy=p[1]*M.planH;x0=Math.min(x0,wx);y0=Math.min(y0,wy);x1=Math.max(x1,wx);y1=Math.max(y1,wy);}); has=true; }
@@ -854,8 +866,13 @@ function isoPour(id){ M.selPour=M.selPour===id?null:id; renderDock(); repaint();
 function zoomBtn(f){ zoomAt(M.box.w/2,M.box.h/2,f); }
 // Fit the whole plan (planW×planH already includes GPAD, so it frames every footing + the grid),
 // centered with a 46px margin — same as CUP's fit(). Single isotropic scale.
-function fitMap(){ M.userView=false; const W=M.box.w,H=M.box.h,m=46;
-  if(!M.planW||!W){ repaint(); return; }
+let _fitTries=0;
+function fitMap(){ M.userView=false; const m=46;
+  const wrap=document.getElementById('canvaswrap'); let W=M.box.w,H=M.box.h;
+  if(wrap){ const r=wrap.getBoundingClientRect(); W=r.width; H=r.height; if(W>0&&H>0)M.box={w:W,h:H}; }   // always fit to the LIVE container size
+  if(!M.planW){ repaint(); return; }
+  if(!(W>0&&H>0)){ if(_fitTries++<30)requestAnimationFrame(fitMap); return; }   // not laid out yet — retry next frame instead of computing a broken top-left view
+  _fitTries=0;
   const s=Math.max(0.02,Math.min((W-2*m)/M.planW,(H-2*m)/M.planH));
   M.view.base=s; M.view.s=s; M.view.tx=(W-M.planW*s)/2; M.view.ty=(H-M.planH*s)/2; M.view.init=true; repaint(); }
 const clampS=s=>Math.max((M.view.base||0.02)*0.5,Math.min((M.view.base||1)*16,s));
@@ -937,7 +954,8 @@ function drawFootings(ctx){ const isoOn=!!M.selPour, W=M.box.w, H=M.box.h;
     ctx.globalAlpha=alpha; const sel=M.sel&&M.sel.kind==='foot'&&M.sel.id===f.no;
     ctx.fillStyle=hexA(col,hot?0.95:(pid?0.7:0.46)); ctx.strokeStyle=sel?'#fff':hexA(col,hot?1:0.66); ctx.lineWidth=sel?2:1;
     if(M.hovFoot===f.no){ctx.shadowColor=hexA(col,.95);ctx.shadowBlur=9;} ctx.beginPath();rr(ctx,s.x-hw,s.y-hh,hw*2,hh*2,1.5);ctx.fill();ctx.shadowBlur=0;ctx.stroke();
-    if(M.layers.rfi&&_footRFI[f.no]){ ctx.fillStyle=hexA(RFI_CYAN,.55);ctx.beginPath();rr(ctx,s.x-hw,s.y-hh,hw*2,hh*2,1.5);ctx.fill();ctx.strokeStyle=RFI_CYAN;ctx.lineWidth=2;ctx.stroke(); }   // assigned-footing indicator: flat strong cyan, no per-footing shadow (cheap even for "all")
+    if(M.layers.rfi&&_footRFI[f.no]){ ctx.strokeStyle=RFI_CYAN;ctx.lineWidth=2;ctx.beginPath();rr(ctx,s.x-hw,s.y-hh,hw*2,hh*2,1.5);ctx.stroke();   // RFI indicator = cyan outline + a constant-size corner badge (clearer than a faint tint, esp. for a whole family)
+      const mx=s.x-hw,my=s.y-hh; ctx.beginPath();ctx.arc(mx,my,5,0,6.2832);ctx.fillStyle=RFI_CYAN;ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle='#0B0E13';ctx.stroke(); ctx.fillStyle='#06202a';ctx.font='700 7px Inter,system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('?',mx,my+0.5);ctx.textAlign='left';ctx.textBaseline='alphabetic'; }
     const ins=DATA.inspections['foot_'+f.no]; if(ins&&ins.status){ctx.fillStyle=INSP_COL[ins.status]||'#888';ctx.beginPath();ctx.arc(s.x+hw,s.y-hh,3,0,6.2832);ctx.fill();}
     ctx.globalAlpha=1; }
 }
@@ -1015,7 +1033,7 @@ function convexHull(pts,pad){ if(pts.length<3)return pts.slice(); const p=pts.ma
   let h=lo.slice(0,-1).concat(hi.slice(0,-1));
   if(pad){ const cx=h.reduce((s,q)=>s+q[0],0)/h.length, cy=h.reduce((s,q)=>s+q[1],0)/h.length; h=h.map(q=>{const dx=q[0]-cx,dy=q[1]-cy,d=Math.hypot(dx,dy)||1;return[q[0]+dx/d*pad,q[1]+dy/d*pad];}); }
   return h; }
-function wireMap(){ const el=_cv;
+function wireMap(){ const el=_cv; const _tp=new Map();   // active touch pointers → pinch-zoom + two-finger pan (iPad)
   window.addEventListener('scroll',()=>{_cvRect=null;},true);
   // Pan tool (default): scroll pans. Zoom tool / pinch / ctrl: scroll zooms. (Bluebeam-style)
   el.addEventListener('wheel',e=>{ e.preventDefault(); M.userView=true; const r=cvRect();
@@ -1023,14 +1041,23 @@ function wireMap(){ const el=_cv;
     else { M.view.tx-=e.deltaX; M.view.ty-=e.deltaY; repaint(); } },{passive:false});
   el.addEventListener('mousedown',e=>{ if(e.button===1)e.preventDefault(); }); // stop middle-click autoscroll
   el.addEventListener('auxclick',e=>e.preventDefault());
-  el.addEventListener('pointerdown',e=>{_cvRect=null;const r=cvRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+  el.addEventListener('pointerdown',e=>{
+    if(e.pointerType==='touch'){ _tp.set(e.pointerId,{x:e.clientX,y:e.clientY});
+      if(_tp.size===2){ M.drag=null; const a=[..._tp.values()]; M._pinch={d:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),mx:(a[0].x+a[1].x)/2,my:(a[0].y+a[1].y)/2}; return; }   // second finger → start pinch
+      if(_tp.size>2)return; }
+    _cvRect=null;const r=cvRect(),x=e.clientX-r.left,y=e.clientY-r.top;
     if(M.regionDraw){const f=toFrac(x,y);el.setPointerCapture(e.pointerId);M.regionDraw.down={fx:f.fx,fy:f.fy,x,y,drag:false};return;}   // drag = box · click = polygon point
     if(M.tool==='note'){const f=toFrac(x,y);addMarkup(f.fx,f.fy);toggleNote();return;}
     const hit=hitTest(x,y); if(hit){M.sel=hit;repaint();openDetail(hit);return;}
     el.setPointerCapture(e.pointerId);el.style.cursor='grabbing';M.drag={x,y,tx:M.view.tx,ty:M.view.ty,moved:false};});
   el.addEventListener('dblclick',e=>{ if(M.regionDraw){e.preventDefault();finishRegionDraw();} });
   let _hovPend=false,_hovXY=null;
-  el.addEventListener('pointermove',e=>{if(M.regionDraw)_cvRect=null;const r=cvRect(),x=e.clientX-r.left,y=e.clientY-r.top;   // fresh rect while drawing so the box tracks the cursor even if the layout shifts/scrolls
+  el.addEventListener('pointermove',e=>{
+    if(M._pinch&&_tp.has(e.pointerId)){ _tp.set(e.pointerId,{x:e.clientX,y:e.clientY}); if(_tp.size>=2){ const a=[..._tp.values()]; const nd=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),nmx=(a[0].x+a[1].x)/2,nmy=(a[0].y+a[1].y)/2,rc=cvRect(); M.userView=true;
+      M.view.tx+=(nmx-M._pinch.mx); M.view.ty+=(nmy-M._pinch.my);   // two-finger pan
+      if(M._pinch.d>0)zoomAt(nmx-rc.left,nmy-rc.top,nd/M._pinch.d); else repaint();   // pinch zoom about the gesture midpoint (zoomAt repaints)
+      M._pinch={d:nd,mx:nmx,my:nmy}; } return; }
+    if(M.regionDraw)_cvRect=null;const r=cvRect(),x=e.clientX-r.left,y=e.clientY-r.top;   // fresh rect while drawing so the box tracks the cursor even if the layout shifts/scrolls
     if(M.regionDraw){const f=toFrac(x,y);M.regionDraw.cur=[f.fx,f.fy];const d=M.regionDraw.down;if(d){if(!d.drag&&Math.hypot(x-d.x,y-d.y)>5)d.drag=true;M.regionDraw.boxPx=d.drag?[d.x,d.y,x,y]:null;}repaint();return;}
     if(M.drag){M.userView=true;M.view.tx=M.drag.tx+(x-M.drag.x);M.view.ty=M.drag.ty+(y-M.drag.y);M.drag.moved=true;repaint();return;}
     _hovXY={x,y}; if(_hovPend)return; _hovPend=true;
@@ -1039,7 +1066,11 @@ function wireMap(){ const el=_cv;
       if(hit&&hit.kind==='foot'){ M.hovPour=null; if(M.hovFoot!==hit.id){M.hovFoot=hit.id;showHovCard(hit.data,x,y);repaint();} }
       else if(hit&&hit.kind==='pour'){ M.hovFoot=null; if(M.hovPour!==hit.id){M.hovPour=hit.id;repaint();} showPourTip(hit.data,x,y); }
       else if(M.hovFoot||M.hovPour){M.hovFoot=null;M.hovPour=null;const hc=document.getElementById('hovcard');if(hc)hc.innerHTML='';repaint();} });});
+  el.addEventListener('pointercancel',e=>{ _tp.delete(e.pointerId); if(_tp.size<2)M._pinch=null; });
   el.addEventListener('pointerup',e=>{
+    const wasPinch=_tp.has(e.pointerId)&&(_tp.size>=2||!!M._pinch);
+    if(_tp.has(e.pointerId)){ _tp.delete(e.pointerId); if(_tp.size<2)M._pinch=null; }
+    if(wasPinch){ M.drag=null; return; }   // lifting a finger from a pinch — not a tap/drag-end
     if(M.regionDraw&&M.regionDraw.down){ _cvRect=null; const r=cvRect(),x=e.clientX-r.left,y=e.clientY-r.top,f=toFrac(x,y),d=M.regionDraw.down; M.regionDraw.down=null;M.regionDraw.boxPx=null;
       if(d.drag){ M.regionDraw.pts=[[+d.fx.toFixed(4),+d.fy.toFixed(4)],[+f.fx.toFixed(4),+f.fy.toFixed(4)]]; finishRegionDraw(); }   // box → save
       else { M.regionDraw.pts.push([+d.fx.toFixed(4),+d.fy.toFixed(4)]); const c=document.getElementById('regionPtCount'); if(c)c.textContent=M.regionDraw.pts.length; repaint(); }   // click → vertex
@@ -1105,8 +1136,8 @@ function openDetail(hit){
       <div style="font-size:12.5px;font-weight:600;line-height:1.4;margin-bottom:10px">${esc(r.title||'')}</div>
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;flex-wrap:wrap"><span class="pill" style="color:${c};background:${hexA(c,.14)}">${esc(r.status)}</span><span style="font-size:10.5px;color:#9AA3B0;display:inline-flex;align-items:center;gap:4px"><span class="ms" style="font-size:13px;color:${RFI_CYAN}">filter_alt</span>${esc(scopeSummary(r.appliesTo)||'No footings tagged')}</span>${Array.isArray(r.region)&&r.region.length?`<span style="font-size:9.5px;color:${RFI_CYAN};border:1px solid ${hexA(RFI_CYAN,.4)};padding:1px 6px;border-radius:5px">drawn region</span>`:''}</div>
       ${r.cover?`<img src="${esc(r.cover)}" style="width:100%;border-radius:9px;margin-bottom:12px">`:''}
-      <div style="display:flex;gap:8px;margin-bottom:8px"><a class="btn primary grad" style="flex:1" href="${esc(r.viewUrl||'#')}" target="_blank">More info ↗</a>${can('rfiEdit')?`<button class="btn" onclick="editRfiScope('${hit.id}')" title="Status & assigned footings"><span class="ms" style="font-size:15px">tune</span></button><button class="btn" onclick="removeRfi('${hit.id}')"><span class="ms" style="font-size:15px">delete</span></button>`:''}</div>
-      ${can('rfiEdit')?`<div style="display:flex;gap:8px"><button class="btn" style="flex:1" onclick="startRegionDraw('${hit.id}')"><span class="ms" style="font-size:15px;color:${RFI_CYAN}">gesture</span>${Array.isArray(r.region)&&r.region.length?'Redraw region':'Draw region'}</button>${Array.isArray(r.region)&&r.region.length?`<button class="btn" onclick="clearRfiRegion('${hit.id}')" title="Clear drawn region"><span class="ms" style="font-size:15px">ink_eraser</span></button>`:''}</div>`:''}`;
+      <div style="display:flex;gap:8px;margin-bottom:8px"><a class="btn primary grad" style="flex:1" href="${esc(r.viewUrl||'#')}" target="_blank">More info ↗</a>${can('rfiEdit')?`<button class="btn" onclick="editRfiScope('${hit.id}')" title="Status & assigned footings"><span class="ms" style="font-size:15px">tune</span></button>`:''}</div>
+      ${can('rfiEdit')?`<div style="display:flex;gap:8px"><button class="btn" style="flex:1" onclick="startRegionDraw('${hit.id}')"><span class="ms" style="font-size:15px;color:${RFI_CYAN}">gesture</span>${Array.isArray(r.region)&&r.region.length?'Redraw region':'Draw region'}</button><button class="btn" onclick="removeRfiFromMap('${hit.id}')" title="Remove this RFI from the map (keeps it in the RFI list)"><span class="ms" style="font-size:15px">layers_clear</span>Off map</button></div>`:''}`;
   } else if(hit.kind==='markup'){ const mk=hit.data;
     body=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="font-size:13px;font-weight:700">Note</div><div onclick="closeDetail()" style="cursor:pointer"><span class="ms" style="font-size:17px;color:#7A8290">close</span></div></div>
       <div style="font-size:12.5px;color:#C7CDD6;white-space:pre-wrap">${esc(mk.text||'')}</div><div style="font-size:10.5px;color:#7A8290;margin-top:8px">${esc(mk.by||'')} · ${fmtDate(mk.at)}</div>
@@ -1142,7 +1173,8 @@ function renderRfiScope(){ const box=document.getElementById('rfiScopeBox'); if(
   }
   box.innerHTML=h; }
 const RFI_SCOPE_BOX='<div id="rfiScopeBox" style="max-height:250px;overflow:auto;margin-bottom:12px;padding:11px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.02)"></div>';
-function editRfiScope(id){ if(!requireRfiEdit(()=>editRfiScope(id)))return; const r=DATA.rfi[id]; if(!r)return; closeDetail(); rfiScopeReset(r.appliesTo); const hasReg=Array.isArray(r.region)&&r.region.length;
+function editRfiScope(id){ if(!requireRfiEdit(()=>editRfiScope(id)))return; const r=DATA.rfi[id]; if(!r)return; if(!M.base)buildGeo();   // ensure footing families render even off the map
+  closeDetail(); rfiScopeReset(r.appliesTo); const hasReg=Array.isArray(r.region)&&r.region.length;
   openModal(`<div style="font-size:16px;font-weight:650;margin-bottom:2px;display:flex;align-items:center;gap:7px"><span class="ms" style="color:${RFI_CYAN}">help</span>RFI ${esc(r.number||'')}</div>
     <div style="font-size:12px;color:#7A8290;margin-bottom:12px">Mark the area this RFI covers — by footing type (auto cyan tint) and/or a drawn region. Both show on the map’s RFI layer.</div>
     <div style="font-size:12px;font-weight:600;margin-bottom:6px">Status</div>
@@ -1154,11 +1186,14 @@ function editRfiScope(id){ if(!requireRfiEdit(()=>editRfiScope(id)))return; cons
   renderRfiScope(); }
 window.editRfiScope=editRfiScope;
 function saveRfiScope(id){ const scope=rfiScopeValue(),sel=document.getElementById('reS'); const upd={appliesTo:scope}; if(sel)upd.status=sel.value;
-  ccUpdate('rfi/'+id,upd).then(()=>{ closeModal(); toast('RFI updated','ok'); }).catch(e=>toast(e.message,'err')); }
+  const prev=DATA.rfi[id]?Object.assign({},DATA.rfi[id]):null;
+  if(DATA.rfi[id]){ DATA.rfi[id].appliesTo=scope; if(sel)DATA.rfi[id].status=sel.value; }   // instant local update so the family tint shows right away
+  M.layers.rfi=true; buildFootRFI(); if(onMap()){renderRfiTray();renderLayerPanel();repaint();} if(STATE.activeTab==='rfis')renderBody();
+  ccUpdate('rfi/'+id,upd).then(()=>{ closeModal(); toast('RFI updated','ok'); }).catch(e=>{ if(prev){DATA.rfi[id]=prev;buildFootRFI();if(onMap())repaint();} toast(e.message,'err'); }); }
 window.saveRfiScope=saveRfiScope;
 /* Assign a Drive RFI to an area: footing types (auto cyan tint). A drawn region can be added after. No pins. */
 let _assignRfi=null;
-function assignDriveRfi(i){ if(!requireRfiEdit(()=>assignDriveRfi(i)))return; const rfi=rfiAvail()[i]; if(!rfi)return; _assignRfi=rfi; rfiScopeReset(null);
+function assignDriveRfi(i){ if(!requireRfiEdit(()=>assignDriveRfi(i)))return; const rfi=rfiAvail()[i]; if(!rfi)return; if(!M.base)buildGeo(); _assignRfi=rfi; rfiScopeReset(null);
   openModal(`<div style="font-size:16px;font-weight:650;margin-bottom:2px;display:flex;align-items:center;gap:7px"><span class="ms" style="color:${RFI_CYAN}">help</span>Assign ${esc(rfi.number||'RFI')}</div>
     <div style="font-size:12px;color:#7A8290;margin-bottom:12px">Mark the footing types this RFI covers — they’ll tint cyan on the map. You can draw a freeform region after.</div>
     <div style="font-size:12px;font-weight:600;margin-bottom:6px">Status</div>
@@ -1172,7 +1207,7 @@ function saveAssignRfi(thenDraw){ const rfi=_assignRfi; if(!rfi)return; const sc
   DATA.rfi[id]=rec; buildFootRFI(); if(onMap()){renderRfiTray();renderLayerPanel();repaint();} if(STATE.activeTab==='rfis')renderBody();
   ccSet('rfi/'+id,rec).then(()=>{closeModal();toast('RFI assigned','ok'); if(thenDraw===true)startRegionDraw(id);}).catch(e=>{delete DATA.rfi[id];buildFootRFI();if(STATE.activeTab==='rfis')renderBody();toast(e.message,'err');}); }
 window.saveAssignRfi=saveAssignRfi;
-function addRfiManual(){ if(!requireRfiEdit(()=>addRfiManual()))return; rfiScopeReset(null); openModal(`<div style="font-size:16px;font-weight:650;margin-bottom:4px">Add RFI manually</div>
+function addRfiManual(){ if(!requireRfiEdit(()=>addRfiManual()))return; if(!M.base)buildGeo(); rfiScopeReset(null); openModal(`<div style="font-size:16px;font-weight:650;margin-bottom:4px">Add RFI manually</div>
   <div style="font-size:12px;color:#7A8290;margin-bottom:12px">Stores the link + the area it covers. Draw a region afterward from “Edit area”.</div>
   <input class="fld" id="rN" placeholder="RFI number" style="width:100%;margin-bottom:8px"><input class="fld" id="rT" placeholder="Subject" style="width:100%;margin-bottom:8px">
   <input class="fld" id="rU" placeholder="Drive link" style="width:100%;margin-bottom:8px"><select class="fld" id="rS" style="width:100%;margin-bottom:8px"><option>Open</option><option>Answered</option><option>Closed</option></select>
@@ -1182,7 +1217,9 @@ function addRfiManual(){ if(!requireRfiEdit(()=>addRfiManual()))return; rfiScope
   renderRfiScope(); }
 window.addRfiManual=addRfiManual;
 function saveRfiManual(){ const num=document.getElementById('rN').value.trim(),title=document.getElementById('rT').value.trim(),url=document.getElementById('rU').value.trim(),status=document.getElementById('rS').value,file=document.getElementById('rC').files[0],scope=rfiScopeValue();
-  const fin=cover=>{const id=ccPush('rfi',null).key;ccSet('rfi/'+id,{number:num||'RFI',title,status,viewUrl:url,cover:cover||null,appliesTo:scope,by:ME.name||ME.email,at:Date.now()}).then(()=>{closeModal();toast('RFI added','ok');if(STATE.activeTab==='rfis')renderBody();}).catch(e=>toast(e.message,'err'));};
+  const fin=cover=>{ const id=ccPush('rfi',null).key; const rec={number:num||'RFI',title,status,viewUrl:url,cover:cover||null,appliesTo:scope,by:ME.name||ME.email,at:Date.now()};
+    DATA.rfi[id]=rec; M.layers.rfi=true; buildFootRFI(); if(onMap()){renderRfiTray();renderLayerPanel();repaint();} if(STATE.activeTab==='rfis')renderBody();
+    ccSet('rfi/'+id,rec).then(()=>{closeModal();toast('RFI added','ok');}).catch(e=>{delete DATA.rfi[id];buildFootRFI();if(onMap())repaint();if(STATE.activeTab==='rfis')renderBody();toast(e.message,'err');}); };
   if(file){const rd=new FileReader();rd.onload=()=>fin(rd.result);rd.readAsDataURL(file);}else fin(null); }
 window.saveRfiManual=saveRfiManual;
 function removeRfi(id){ if(!can('rfiEdit'))return; ccRef('rfi/'+id).remove().then(()=>{closeDetail();M.sel=null;toast('RFI removed','ok');}); }
@@ -1214,7 +1251,7 @@ function rfiActiveRow([id,r]){ const ed=can('rfiEdit'),scope=scopeSummary(r.appl
       <div style="font-size:10.5px;color:#7A8290;margin-top:3px;display:flex;align-items:center;gap:4px"><span class="ms" style="font-size:12px;color:${RFI_CYAN}">filter_alt</span>${scope?esc(scope):(hasReg?'Drawn region only':'No area set yet')}</div>
     </div>
     <button class="ghostbtn" style="padding:5px 10px;font-size:11px" onclick="focusRfi('${id}')" title="Show this RFI's area on the map"><span class="ms" style="font-size:14px;color:${RFI_CYAN}">my_location</span>Show on map</button>
-    ${ed?`<button class="ghostbtn" style="padding:5px 10px;font-size:11px" onclick="editRfiScope('${id}')"><span class="ms" style="font-size:14px;color:${RFI_CYAN}">tune</span>Edit area</button>${rfiIconBtn('delete','Remove RFI',`removeRfi('${id}')`)}`:''}
+    ${ed?`<button class="ghostbtn" style="padding:5px 10px;font-size:11px" onclick="editRfiScope('${id}')"><span class="ms" style="font-size:14px;color:${RFI_CYAN}">tune</span>Edit area</button>${rfiIconBtn('delete','Delete RFI entirely (removes it everywhere)',`removeRfi('${id}')`)}`:''}
     <a href="${esc(r.viewUrl||'#')}" target="_blank" class="ghostbtn" style="padding:5px 7px" title="Open in Drive"><span class="ms" style="font-size:16px;color:${RFI_CYAN}">open_in_new</span></a>
   </div>`; }
 let _rfiQuery='';
@@ -1288,20 +1325,29 @@ async function cupFetchChecklist(){ try{ const r=await fetch(CUP_CHECKLIST_URL);
   for(const row of rows){ if(!row||!row.c)continue; const phase=_gs(row,0).trim(),what=_gs(row,1).trim(); if(!phase||!what||phase==='Phase')continue; if(!phases[phase]){phases[phase]=[];order.push(phase);} phases[phase].push({what,who:_gs(row,2).trim()}); }
   DATA.cupChecklistItems=order.map(ph=>({phase:ph,phaseKey:ph,items:phases[ph]})); }catch(e){ DATA.cupChecklistItems=DATA.cupChecklistItems||[]; } }
 function cupEnsureData(){ if(DATA.cupSheetPours&&DATA.cupChecklistItems)return; if(_cupLoading)return; _cupLoading=true; Promise.all([cupFetchSheetPours(),cupFetchChecklist()]).then(()=>{ _cupLoading=false; if(STATE.activeTab==='pours')renderBody(); }).catch(()=>{_cupLoading=false;}); }
-function cupPours(){ const sheet=DATA.cupSheetPours||[], user=DATA.poursUser||{}, del=DATA.poursDeleted||{}, ov=DATA.pourOverrides||{}; const byId={}, list=[];
-  sheet.forEach(p=>{ if(del[p.id])return; const np=Object.assign({},p); byId[p.id]=np; list.push(np); });
-  Object.entries(user).forEach(([id,p])=>{ if(del[id]||byId[id])return; const total=(+p.cy8000||0)+(+p.cy5000||0)+(+p.slurry||0); const np={id,section:(p.section||id[0]||'A').toString().toUpperCase(),date:p.date||'',cy8000:+p.cy8000||0,cy5000:+p.cy5000||0,slurry:+p.slurry||0,total,trucks:+p.trucks||Math.ceil(total/9)||0,status:p.status||'',label:p.label||'',userAdded:true}; byId[id]=np; list.push(np); });
-  list.forEach(p=>{ const o=ov[p.id]; if(o)Object.entries(o).forEach(([k,v])=>{ if(k==='cy8000'||k==='cy5000'||k==='slurry')p[k]=+v||0; else p[k]=v; }); p.total=(+p.cy8000||0)+(+p.cy5000||0)+(+p.slurry||0); p.trucks=Math.ceil(p.total/9); });
+/* Pours now come from the SAME live source the map uses: cup-foundation/pours (+ WCG zone pours),
+   normalized into _poursCache by refreshPours()/normPour(). The legacy sheet + pours-user + pour-overrides
+   are no longer read here (the live CUP dashboard moved off the spreadsheet). */
+function cupPours(){ const del=DATA.poursDeleted||{}; const list=[];
+  Object.values(_poursCache).forEach(p=>{ if(del[p.id])return; const cy=+p.cy||0;
+    list.push({ id:p.id, section:String(p.area||(p.id||'')[0]||'').toUpperCase(), name:p.name||('Pour '+p.id), date:p.date||'', time:p.time||'', status:p.status||'PENDING', sequence:p.sequence||'', cy, total:cy, trucks:Math.ceil(cy/9)||0, mix:p.mix||null }); });
   return list; }
-function cupGetStatus(id){ const v=(DATA.pourStatus||{})[id]; return (v==='ORDERED'||v==='COMPLETE'||v==='PENDING')?v:'PENDING'; }
+function cupGetStatus(id){ const v=(DATA.pourStatus||{})[id]; if(v==='ORDERED'||v==='COMPLETE'||v==='PENDING')return v; const p=_poursCache[id]; const s=String((p&&p.status)||'').toUpperCase(); return (s==='ORDERED'||s==='COMPLETE')?s:'PENDING'; }
 function cupMixDesigns(){ return Object.assign({},CUP_MIX_DESIGNS,DATA.mixDesignsLive||{}); }
 function cupCheckKey(id,what){ return id+'__'+String(what).replace(/[.#$\[\]\/]/g,'_'); }
 function cupInspStatus(id){ const g=(DATA.cupChecklistItems||[]).find(x=>x.phaseKey==='INSPECTIONS'); if(!g)return{items:[],done:0,total:0}; const ch=DATA.cupChecklist||{}; const its=g.items.map(it=>({what:it.what,done:!!ch[cupCheckKey(id,it.what)]})); return {items:its,done:its.filter(i=>i.done).length,total:its.length}; }
 function cupConcreteStatus(id){ const s=DATA.concreteOrder||{}; const items=CONCRETE_ORDER_ITEMS.map(it=>({key:it.key,label:it.label,done:!!s[id+'__'+it.key]})); return {items,done:items.filter(i=>i.done).length,total:items.length}; }
 function cupFootingMap(id){ const m=(DATA.cupMaps||{})[id]; if(!m)return null; const fts=Array.isArray(m.footings)?m.footings:(m.footings?Object.values(m.footings):[]); return {footings:fts}; }
 function cupEmbChecked(fid,eid){ return !!(DATA.embedChecks||{})[(fid+'_'+eid).replace(/[.$\[\]#]/g,'_')]; }
-function cupDateVal(d){ if(!d)return 99999; const [m,dd]=d.split('/').map(Number); return (m||99)*100+(dd||0); }
-function cupPourMs(p){ if(!p.date)return null; const [m,d]=p.date.split('/').map(Number); if(!m)return null; return new Date(2026,m-1,d).getTime(); }
+// Handles both the new ISO "YYYY-MM-DD" pour dates and legacy "M/D" (or "M/D/YYYY").
+function cupParseDate(d){ if(!d)return null; d=String(d).trim();
+  let m=d.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m)return {y:+m[1],mo:+m[2],d:+m[3]};
+  m=d.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/); if(m)return {y:m[3]?(+m[3]<100?2000+ +m[3]:+m[3]):2026,mo:+m[1],d:+m[2]};
+  return null; }
+const CUP_MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function cupFmtDate(d){ const p=cupParseDate(d); return p?(CUP_MONTHS[p.mo-1]+' '+p.d):''; }
+function cupDateVal(d){ const p=cupParseDate(d); return p?(p.y*10000+p.mo*100+p.d):99999999; }
+function cupPourMs(p){ const dt=cupParseDate(p.date); return dt?new Date(dt.y,dt.mo-1,dt.d).getTime():null; }
 function cupInRange(p){ const f=STATE.pourFrom?new Date(STATE.pourFrom+'T00:00:00').getTime():null, t=STATE.pourTo?new Date(STATE.pourTo+'T23:59:59').getTime():null; if(!f&&!t)return true; const ms=cupPourMs(p); if(ms==null)return false; if(f&&ms<f)return false; if(t&&ms>t)return false; return true; }
 function cupSetRange(which,val){ if(which==='from')STATE.pourFrom=val||null; else STATE.pourTo=val||null; renderBody(); }
 function cupClearRange(){ STATE.pourFrom=null; STATE.pourTo=null; renderBody(); }
@@ -1331,59 +1377,54 @@ function cupCardWrap(p){ return `<div style="width:344px;max-width:88vw;max-heig
 function cupRefreshModal(){ if(!STATE.cupModal)return; const md=document.getElementById('modal'); if(!md||!md.classList.contains('open'))return; const p=cupPours().find(x=>x.id===STATE.cupModal); if(p)document.getElementById('modalCard').innerHTML=cupCardWrap(p); }
 function cupOpenCard(id){ const p=cupPours().find(x=>x.id===id); if(!p)return; STATE.cupModal=id; openModal(cupCardWrap(p)); }
 window.cupOpenCard=cupOpenCard;
-function cupPourCard(p){ const c=SEC_COLORS[p.section]||'#888'; const st=cupGetStatus(p.id); const isOrd=st==='ORDERED'||st==='COMPLETE'; const ed=canView('pourEdit');
-  const mdVals=Object.values(cupMixDesigns()); const codeFor=psi=>{const d=mdVals.find(x=>+x.psi===psi);return d?d.code:'';}; const slurryCode=()=>{const d=mdVals.find(x=>/slurry/i.test(x.label||'')|| +x.psi===0);return d?d.code:'';};
-  const mixes=[{key:'cy8000',label:'8000 PSI',code:codeFor(8000),col:'#FCA5A5',bar:'linear-gradient(90deg,#dc2626,#fb923c)',glow:'rgba(239,68,68,.3)'},{key:'cy5000',label:'5000 PSI',code:codeFor(5000),col:'#93C5FD',bar:'linear-gradient(90deg,#2563eb,#22d3ee)',glow:'rgba(59,130,246,.3)'},{key:'slurry',label:'Slurry',code:slurryCode(),col:'#D1D5DB',bar:'linear-gradient(90deg,#6b7280,#9ca3af)',glow:'rgba(148,163,184,.2)'}];
-  const stStyle=st==='COMPLETE'?'background:rgba(59,130,246,.2);color:#60a5fa;border:1px solid rgba(59,130,246,.3)':st==='ORDERED'?'background:rgba(34,197,94,.2);color:#4ade80;border:1px solid rgba(34,197,94,.3)':'background:rgba(255,255,255,.05);color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.1)';
-  const stBtn=`<button ${ed?`onclick="cupCycleStatus('${p.id}')"`:'disabled'} style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:9999px;cursor:${ed?'pointer':'default'};${stStyle}">${st}</button>`;
-  const dateEl=ed?`<span class="mono" style="position:relative;display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;${p.date?'border:1px solid rgba(96,165,250,.3);background:rgba(59,130,246,.1);color:#93c5fd':'border:1px dashed rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.4)'}"><span class="ms" style="font-size:12px">calendar_month</span>${p.date||'Set date'}<input type="date" value="${p.date?'2026-'+p.date.split('/').map(n=>String(n).padStart(2,'0')).join('-'):''}" style="position:absolute;inset:0;opacity:0;cursor:pointer;color-scheme:dark" onchange="if(this.value){const d=this.value.split('-');cupSetField('${p.id}','date',parseInt(d[1])+'/'+parseInt(d[2]))}"></span>`:`<span class="mono" style="font-size:11px;color:rgba(255,255,255,.4)">${esc(p.date||'—')}</span>`;
-  const mixRows=mixes.map(m=>{ const v=+p[m.key]||0; const max=_cupMax[m.key]||1; const pct=Math.round(v/max*100); const dim=v===0?'opacity:.5':'';
-    const val=ed?`<span style="display:inline-flex;align-items:center;gap:2px"><input type="number" min="0" step="0.5" value="${v}" onfocus="this.select()" onclick="event.stopPropagation()" onblur="(function(el){const nv=+el.value||0;if(nv!==${v})cupSetField('${p.id}','${m.key}',nv)})(this)" onkeydown="if(event.key==='Enter')this.blur()" class="mono" style="width:54px;text-align:right;background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:4px;color:${m.col};font-weight:600;font-size:12px;padding:1px 3px;outline:none">&nbsp;<span style="color:rgba(255,255,255,.4);font-size:11px">CY</span></span>`:`<span class="mono" style="color:${m.col};font-weight:600;font-size:12px">${v} CY</span>`;
-    return `<div style="margin-bottom:8px;${dim}"><div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:4px"><span style="color:rgba(255,255,255,.4);display:flex;align-items:center;gap:6px;min-width:0">${m.label}${m.code?`<span class="mono" style="font-size:8.5px;padding:0 4px;border-radius:3px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.1)" title="Mix design ${m.code}">${m.code}</span>`:''}</span>${val}</div><div style="height:6px;border-radius:9999px;background:rgba(255,255,255,.05);overflow:hidden"><div style="height:100%;border-radius:9999px;width:${pct}%;background:${m.bar};box-shadow:0 0 6px ${m.glow}"></div></div></div>`;
-  }).join('');
-  const insp=cupInspStatus(p.id); let inspHtml='';
-  if(insp.total){ const pctI=Math.round(insp.done/insp.total*100); const clr=pctI===100?'#41A447':pctI>0?'#FFBF00':'#ef4444';
-    inspHtml=`<div style="margin-bottom:8px;padding:8px;border-radius:9px;background:${clr}0a;border:1px solid ${clr}44"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:4px;color:${clr}"><span class="ms" style="font-size:11px">assignment_turned_in</span>Inspections ${insp.done}/${insp.total}</span><div style="display:flex;align-items:center;gap:6px">${ed&&pctI<100?`<button onclick="cupMarkAllInsp('${p.id}')" style="font-size:8px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.25);cursor:pointer;text-transform:uppercase">All ✓</button>`:''}<span class="mono" style="font-size:9px;font-weight:700;color:${clr}">${pctI}%</span></div></div><div style="height:4px;border-radius:9999px;background:rgba(255,255,255,.05);overflow:hidden;margin-bottom:6px"><div style="height:100%;border-radius:9999px;width:${pctI}%;background:${clr}"></div></div><div style="display:flex;flex-wrap:wrap;gap:4px">${insp.items.map((it,i)=>{const short=it.what.length>22?it.what.slice(0,20)+'…':it.what; const base=`font-size:8px;padding:2px 6px;border-radius:4px;${it.done?'background:rgba(34,197,94,.15);color:#4ade80':'background:rgba(255,255,255,.05);color:rgba(255,255,255,.35)'}`; return ed?`<button onclick="cupToggleCheck('${p.id}',${i})" class="mono" style="${base};cursor:pointer;border:0" title="${esc(it.what)}">${esc(short)}${it.done?' ✓':''}</button>`:`<span class="mono" style="${base}" title="${esc(it.what)}">${esc(short)}${it.done?' ✓':''}</span>`;}).join('')}</div></div>`; }
-  const co=cupConcreteStatus(p.id); const pctC=Math.round(co.done/co.total*100); const clrC=pctC===100?'#41A447':pctC>0?'#FFBF00':'#ef4444';
-  const coHtml=`<div style="margin-bottom:8px;padding:8px;border-radius:9px;background:${clrC}0a;border:1px solid ${clrC}44"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:4px;color:${clrC}"><span class="ms" style="font-size:11px">local_shipping</span>Concrete Order ${co.done}/${co.total}</span><div style="display:flex;align-items:center;gap:6px">${ed&&pctC<100?`<button onclick="cupMarkAllConcrete('${p.id}')" style="font-size:8px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.25);cursor:pointer;text-transform:uppercase">All ✓</button>`:''}<span class="mono" style="font-size:9px;font-weight:700;color:${clrC}">${pctC}%</span></div></div><div style="height:4px;border-radius:9999px;background:rgba(255,255,255,.05);overflow:hidden;margin-bottom:6px"><div style="height:100%;border-radius:9999px;width:${pctC}%;background:${clrC}"></div></div><div style="display:flex;flex-wrap:wrap;gap:4px">${co.items.map(it=>{const base=`font-size:8px;padding:2px 6px;border-radius:4px;${it.done?'background:rgba(34,197,94,.15);color:#4ade80':'background:rgba(255,255,255,.05);color:rgba(255,255,255,.35)'}`; return ed?`<span onclick="cupToggleConcrete('${p.id}','${it.key}')" class="mono" style="${base};cursor:pointer" title="${esc(it.label)}">${esc(it.label)}${it.done?' ✓':''}</span>`:`<span class="mono" style="${base}" title="${esc(it.label)}">${esc(it.label)}${it.done?' ✓':''}</span>`;}).join('')}</div></div>`;
-  const fmap=cupFootingMap(p.id); let embHtml=''; if(fmap){ const withEmb=fmap.footings.filter(f=>f.embeds&&f.embeds.length); if(withEmb.length){ const total=withEmb.reduce((s,f)=>s+f.embeds.length,0); const ck=withEmb.reduce((s,f)=>s+f.embeds.filter(e=>cupEmbChecked(f.id,e.embedId)).length,0); const pctE=Math.round(ck/total*100); const clrE=pctE===100?'#41A447':pctE>0?'#FFBF00':'#ef4444';
-    embHtml=`<div style="margin-bottom:8px;padding:8px;border-radius:9px;background:rgba(255,255,255,.02);border:1px solid ${clrE}22"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:4px;color:${clrE}"><span class="ms" style="font-size:11px">push_pin</span>Embeds ${ck}/${total}</span><span class="mono" style="font-size:9px;font-weight:700;color:${clrE}">${pctE}%</span></div><div style="height:4px;border-radius:9999px;background:rgba(255,255,255,.05);overflow:hidden;margin-bottom:6px"><div style="height:100%;border-radius:9999px;width:${pctE}%;background:${clrE}"></div></div><div style="display:flex;flex-wrap:wrap;gap:4px">${withEmb.map(f=>f.embeds.map(e=>{const on=cupEmbChecked(f.id,e.embedId);return `<span class="mono" style="font-size:8px;padding:2px 6px;border-radius:4px;${on?'background:rgba(34,197,94,.15);color:#4ade80':'background:rgba(255,255,255,.05);color:rgba(255,255,255,.3)'}">${esc(String(f.id).split('-').pop())}:${esc(e.embedId)}${on?' ✓':''}</span>`;}).join('')).join('')}</div></div>`; } }
-  return `<div style="background:rgba(6,6,14,.82);border:1px solid rgba(255,255,255,.06);border-left:3px solid ${c};border-radius:12px;padding:16px;${st==='COMPLETE'?'box-shadow:inset 0 0 0 1px rgba(59,130,246,.3)':isOrd?'box-shadow:inset 0 0 0 1px rgba(34,197,94,.3)':''}"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:5px;background:${c}22;color:${c};flex-shrink:0">${esc(p.section)}</span><span class="mono" style="font-size:13px;font-weight:700;color:rgba(255,255,255,.9)">${esc(p.id)}</span>${p.label?`<span style="font-size:11px;color:rgba(255,255,255,.4);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.label)}</span>`:''}</div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0">${dateEl}${stBtn}</div></div>${mixRows}${inspHtml}${coHtml}${embHtml}<div style="display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid rgba(255,255,255,.05)"><span class="mono" style="font-size:13px;font-weight:700;color:#34D399">${Math.round(p.total)} <span style="color:rgba(255,255,255,.4);font-weight:400;font-size:11px">CY</span></span><span style="font-size:11px;color:rgba(255,255,255,.4)">${p.trucks} trucks</span></div></div>`;
+// Read-only pour card — mirrors the live CUP pour (cup-foundation/pours). Edits happen in CUP (Open CUP).
+function cupPourCard(p){ const c=SEC_COLORS[p.section]||'#888'; const st=cupGetStatus(p.id); const isOrd=st==='ORDERED'||st==='COMPLETE';
+  const dstr=cupFmtDate(p.date)||'—'; const mix=p.mix||{};
+  const mixStr=[mix.code,(mix.psi?mix.psi+' PSI':''),(mix.lc3?'LC3':''),(mix.slump?'slump '+String(mix.slump).replace(/"/g,'')+'"':'')].filter(Boolean).join(' · ');
+  const stStyle=st==='COMPLETE'?'background:rgba(59,130,246,.2);color:#60a5fa;border:1px solid rgba(59,130,246,.3)':st==='ORDERED'?'background:rgba(34,197,94,.2);color:#4ade80;border:1px solid rgba(34,197,94,.3)':'background:rgba(255,255,255,.05);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.1)';
+  return `<div style="background:rgba(6,6,14,.82);border:1px solid rgba(255,255,255,.06);border-left:3px solid ${c};border-radius:12px;padding:16px;${st==='COMPLETE'?'box-shadow:inset 0 0 0 1px rgba(59,130,246,.3)':isOrd?'box-shadow:inset 0 0 0 1px rgba(34,197,94,.3)':''}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:5px;background:${c}22;color:${c};flex-shrink:0">${esc(p.section||'—')}</span><span style="font-size:12.5px;font-weight:650;color:rgba(255,255,255,.92);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name||p.id)}</span></div><span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:9999px;flex-shrink:0;${stStyle}">${st}</span></div>
+    <div style="display:flex;align-items:center;gap:14px;font-size:11.5px;color:#9AA3B0;margin-bottom:${mixStr?'10':'0'}px;flex-wrap:wrap">
+      <span style="display:flex;align-items:center;gap:5px"><span class="ms" style="font-size:13px;color:#60a5fa">calendar_month</span><span class="mono">${esc(dstr)}</span></span>
+      ${p.time?`<span style="display:flex;align-items:center;gap:5px"><span class="ms" style="font-size:13px;color:#8B5CF6">schedule</span><span class="mono">${esc(p.time)}</span></span>`:''}
+      ${p.sequence?`<span class="mono" style="color:#7A8290">Seq ${esc(String(p.sequence))}</span>`:''}</div>
+    ${mixStr?`<div style="font-size:10.5px;color:#7A8290;margin-bottom:10px;display:flex;align-items:center;gap:6px"><span class="ms" style="font-size:13px">science</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(mixStr)}</span></div>`:''}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;margin-top:2px;border-top:1px solid rgba(255,255,255,.05)"><span class="mono" style="font-size:13px;font-weight:700;color:#34D399">${Math.round(p.total)} <span style="color:rgba(255,255,255,.4);font-weight:400;font-size:11px">CY</span></span><span style="font-size:11px;color:rgba(255,255,255,.4)">${p.trucks} trucks</span></div></div>`;
 }
-function cupDefaultMonth(list){ const months=new Set(); list.forEach(p=>{ if(p.date){ const m=(+p.date.split('/')[0])-1; if(m>=0&&m<=11)months.add(m); } }); if(!months.size)return new Date().getMonth(); const cur=new Date().getMonth(); if(months.has(cur))return cur; let best=cur,bd=99; months.forEach(m=>{ const dist=Math.abs(m-cur)*2-(m>=cur?1:0); if(dist<bd){bd=dist;best=m;} }); return best; }
-function poursHTML(){ cupEnsureData(); const allList=cupPours(); const doneN=allList.filter(p=>cupGetStatus(p.id)==='COMPLETE').length; const list=allList.filter(p=>!STATE.hidePourDone||cupGetStatus(p.id)!=='COMPLETE'); _cupMax={cy8000:Math.max(1,...list.map(p=>+p.cy8000||0)),cy5000:Math.max(1,...list.map(p=>+p.cy5000||0)),slurry:Math.max(1,...list.map(p=>+p.slurry||0))};
+function cupDefaultMonth(list){ const months=new Set(); list.forEach(p=>{ const dt=cupParseDate(p.date); if(dt&&dt.y===2026&&dt.mo>=1&&dt.mo<=12)months.add(dt.mo-1); }); if(!months.size)return new Date().getMonth(); const cur=new Date().getMonth(); if(months.has(cur))return cur; let best=cur,bd=99; months.forEach(m=>{ const dist=Math.abs(m-cur); if(dist<bd){bd=dist;best=m;} }); return best; }
+function poursHTML(){ const allList=cupPours(); const doneN=allList.filter(p=>cupGetStatus(p.id)==='COMPLETE').length; const list=allList.filter(p=>!STATE.hidePourDone||cupGetStatus(p.id)!=='COMPLETE');
   if(STATE.pourMonth==null&&list.length)STATE.pourMonth=cupDefaultMonth(list);
   const view=STATE.pourView||'calendar'; const g=list.reduce((a,p)=>{a.total+=p.total;a.trucks+=p.trucks;return a;},{total:0,trucks:0});
   const tabs=[['calendar','Calendar','calendar_month'],['cards','Cards','grid_view']].map(t=>`<button onclick="setPourView('${t[0]}')" class="segbtn ${view===t[0]?'on':''}" style="display:flex;align-items:center;gap:6px"><span class="ms" style="font-size:15px">${t[2]}</span>${t[1]}</button>`).join('');
   const totals=`<div style="display:flex;gap:14px;align-items:center;font-size:11.5px;color:#9AA3B0"><span><b class="mono" style="color:#34D399">${Math.round(g.total).toLocaleString()}</b> CY</span><span><b class="mono">${g.trucks}</b> trucks</span><span><b class="mono">${list.length}</b> pours</span></div>`;
   const dr=`<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#7A8290"><span class="ms" style="font-size:15px;color:#8B5CF6">date_range</span><input type="date" value="${STATE.pourFrom||''}" onchange="cupSetRange('from',this.value)" class="fld" style="padding:4px 7px;color-scheme:dark"><span>→</span><input type="date" value="${STATE.pourTo||''}" onchange="cupSetRange('to',this.value)" class="fld" style="padding:4px 7px;color-scheme:dark">${(STATE.pourFrom||STATE.pourTo)?`<span class="ms" onclick="cupClearRange()" title="Clear range" style="cursor:pointer;color:#9AA3B0">close</span>`:''}</div>`;
   const hideToggle=`<button class="ghostbtn" onclick="togglePourDone()" title="Show or hide completed pours to reduce clutter" style="${STATE.hidePourDone?'border-color:rgba(139,92,246,.5);color:#C9BBFF':''}"><span class="ms" style="font-size:15px;color:${STATE.hidePourDone?'#C9BBFF':'#22C55E'}">${STATE.hidePourDone?'visibility_off':'check_circle'}</span>${STATE.hidePourDone?'Show complete':'Hide complete'}${doneN?` · ${doneN}`:''}</button>`;
-  const head=`<div style="flex-shrink:0;display:flex;align-items:center;gap:14px;padding:14px 20px 12px;flex-wrap:wrap"><div class="seg">${tabs}</div>${dr}${totals}<div style="flex:1"></div>${EDIT_LOCKED&&(CAP.pourEdit||[]).includes(activeRole())?`<span style="font-size:11px;color:#7A8290;display:flex;align-items:center;gap:5px"><span class="ms" style="font-size:14px">lock</span>Unlock to edit</span>`:''}${hideToggle}${can('pourEdit')?`<button class="ghostbtn" onclick="cupAddPourModal()"><span class="ms" style="font-size:15px;color:#22C55E">add</span>Add pour</button>`:''}<a class="ghostbtn" href="${APP_URLS.cup}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>Open CUP</a></div>`;
-  const body= !DATA.cupSheetPours&&!allList.length ? `<div class="full"><span class="ms">water_drop</span><div>Loading pours from CUP…</div></div>` : (view==='cards'?cupCardsView(list):cupCalendarView(list));
+  const head=`<div style="flex-shrink:0;display:flex;align-items:center;gap:14px;padding:14px 20px 12px;flex-wrap:wrap"><div class="seg">${tabs}</div>${dr}${totals}<div style="flex:1"></div><span style="font-size:10.5px;color:#5B636F;display:flex;align-items:center;gap:5px" title="Pours are live from CUP — edit them in the CUP dashboard"><span class="ms" style="font-size:13px">sync</span>Live mirror</span>${hideToggle}<a class="ghostbtn" href="${APP_URLS.cup}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>Open CUP</a></div>`;
+  const body= !allList.length ? `<div class="full"><span class="ms">water_drop</span><div>Loading pours from CUP…</div></div>` : (view==='cards'?cupCardsView(list):cupCalendarView(list));
   return `<div style="display:flex;flex-direction:column;height:100%;animation:oyFade .35s ease">${head}${body}</div>`;
 }
 function togglePourDone(){ STATE.hidePourDone=!STATE.hidePourDone; renderBody(); }
 window.togglePourDone=togglePourDone;
 function setPourView(v){ STATE.pourView=v; renderBody(); }
 window.setPourView=setPourView;
-function cupPourCardGrid(pours){ return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(304px,1fr));gap:14px;align-items:start">${pours.map(p=>`<div data-search="${esc((p.id+' '+p.section+' '+(p.label||'')+' '+(p.date||'')).toLowerCase())}">${cupPourCard(p)}</div>`).join('')||'<div style="color:#5B636F;font-size:12px;padding:10px">No pours in this range.</div>'}</div>`; }
+function cupPourCardGrid(pours){ return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(304px,1fr));gap:14px;align-items:start">${pours.map(p=>`<div data-search="${esc((p.id+' '+p.section+' '+(p.name||'')+' '+(p.date||'')).toLowerCase())}">${cupPourCard(p)}</div>`).join('')||'<div style="color:#5B636F;font-size:12px;padding:10px">No pours in this range.</div>'}</div>`; }
 function cupCardsView(list){ const sorted=list.filter(cupInRange).sort((a,b)=>cupDateVal(a.date)-cupDateVal(b.date)||a.id.localeCompare(b.id));
   if(!list.length)return `<div class="full"><span class="ms">water_drop</span><div>No pours yet.</div></div>`;
   return `<div style="flex:1;overflow:auto;padding:0 20px 20px">${cupPourCardGrid(sorted)}</div>`; }
 function cupCalendarView(list){ const year=2026; const month=(STATE.pourMonth==null?cupDefaultMonth(list):STATE.pourMonth);
-  const byDay={}, unsched=[]; list.forEach(p=>{ if(!p.date){unsched.push(p);return;} const [m,d]=p.date.split('/').map(Number); if(m-1===month)(byDay[d]=byDay[d]||[]).push(p); });
+  const byDay={}, unsched=[]; list.forEach(p=>{ const dt=cupParseDate(p.date); if(!dt){unsched.push(p);return;} if(dt.y===year&&dt.mo-1===month)(byDay[dt.d]=byDay[dt.d]||[]).push(p); });
   const first=new Date(year,month,1); const startOff=first.getDay(); const dim=new Date(year,month+1,0).getDate(); const today=new Date(); const isToday=d=>today.getFullYear()===year&&today.getMonth()===month&&today.getDate()===d;
   const wk=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(w=>`<div style="font-size:10px;color:#5B636F;text-align:center;padding:5px 0;font-weight:600;letter-spacing:.5px">${w}</div>`).join('');
   let cells=''; for(let i=0;i<startOff;i++)cells+=`<div style="background:rgba(255,255,255,.012);border-radius:8px"></div>`;
   for(let d=1;d<=dim;d++){ const ps=(byDay[d]||[]).sort((a,b)=>a.id.localeCompare(b.id)); const tot=ps.reduce((s,p)=>s+p.total,0);
     const chips=ps.map(p=>{const c=SEC_COLORS[p.section]||'#888'; const st=cupGetStatus(p.id); const sc=st==='COMPLETE'?'#60a5fa':st==='ORDERED'?'#4ade80':'#9AA3B0';
-      return `<div onclick="cupOpenCard('${p.id}')" style="cursor:pointer;border-left:3px solid ${c};background:rgba(255,255,255,.05);border-radius:5px;padding:3px 6px;margin-bottom:3px;display:flex;align-items:center;gap:5px" title="${esc(p.id)} · ${Math.round(p.total)} CY"><span style="width:5px;height:5px;border-radius:50%;background:${sc};flex-shrink:0"></span><span class="mono" style="font-size:10px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.id)}</span><span class="mono" style="font-size:9.5px;color:#7A8290;margin-left:auto;white-space:nowrap">${Math.round(p.total)}</span></div>`;}).join('');
+      return `<div onclick="cupOpenCard('${p.id}')" style="cursor:pointer;border-left:3px solid ${c};background:rgba(255,255,255,.05);border-radius:5px;padding:3px 6px;margin-bottom:3px;display:flex;align-items:center;gap:5px" title="${esc(p.name||p.id)} · ${Math.round(p.total)} CY"><span style="width:5px;height:5px;border-radius:50%;background:${sc};flex-shrink:0"></span><span style="font-size:10px;font-weight:600;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name||p.id)}</span><span class="mono" style="font-size:9.5px;color:#7A8290;margin-left:auto;white-space:nowrap;flex-shrink:0">${Math.round(p.total)}</span></div>`;}).join('');
     cells+=`<div style="background:${isToday(d)?'rgba(59,130,246,.07)':'rgba(255,255,255,.022)'};border:1px solid ${isToday(d)?'rgba(59,130,246,.3)':'rgba(255,255,255,.05)'};border-radius:8px;padding:5px;min-height:80px;display:flex;flex-direction:column;overflow:hidden"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span class="mono" onclick="cupDayRange(${year},${month},${d})" title="Show this day's pours below" style="font-size:10.5px;font-weight:${isToday(d)?700:500};color:${isToday(d)?'#60a5fa':'#7A8290'};cursor:pointer">${d}</span>${tot?`<span class="mono" style="font-size:8.5px;color:#34D399">${Math.round(tot)}CY</span>`:''}</div><div style="flex:1;overflow-y:auto">${chips}</div></div>`; }
   const monthName=first.toLocaleString(undefined,{month:'long'})+' '+year;
   const nav=`<div style="display:flex;align-items:center;gap:8px;padding:0 20px 10px"><button class="ghostbtn" onclick="cupMonthNav(-1)"><span class="ms" style="font-size:16px">chevron_left</span></button><div style="font-size:14px;font-weight:650;min-width:150px;text-align:center">${monthName}</div><button class="ghostbtn" onclick="cupMonthNav(1)"><span class="ms" style="font-size:16px">chevron_right</span></button><button class="ghostbtn" onclick="cupMonthToday()">Today</button></div>`;
-  const unschedHtml=unsched.length?`<div style="padding:12px 20px 0"><div style="font-size:11px;color:#7A8290;margin-bottom:6px">Unscheduled · ${unsched.length}</div><div style="display:flex;gap:8px;flex-wrap:wrap">${unsched.sort((a,b)=>a.id.localeCompare(b.id)).map(p=>{const c=SEC_COLORS[p.section]||'#888';return `<div onclick="cupOpenCard('${p.id}')" style="cursor:pointer;border-left:3px solid ${c};background:rgba(255,255,255,.05);border-radius:6px;padding:4px 9px;display:flex;align-items:center;gap:6px"><span class="mono" style="font-size:11px;font-weight:700">${esc(p.id)}</span><span class="mono" style="font-size:10px;color:#7A8290">${Math.round(p.total)}CY</span></div>`;}).join('')}</div></div>`:'';
+  const unschedHtml=unsched.length?`<div style="padding:12px 20px 0"><div style="font-size:11px;color:#7A8290;margin-bottom:6px">Unscheduled · ${unsched.length}</div><div style="display:flex;gap:8px;flex-wrap:wrap">${unsched.sort((a,b)=>a.id.localeCompare(b.id)).map(p=>{const c=SEC_COLORS[p.section]||'#888';return `<div onclick="cupOpenCard('${p.id}')" style="cursor:pointer;border-left:3px solid ${c};background:rgba(255,255,255,.05);border-radius:6px;padding:4px 9px;display:flex;align-items:center;gap:6px;max-width:220px"><span style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name||p.id)}</span><span class="mono" style="font-size:10px;color:#7A8290;flex-shrink:0">${Math.round(p.total)}CY</span></div>`;}).join('')}</div></div>`:'';
   const rangeActive=!!(STATE.pourFrom||STATE.pourTo);
-  const cardPours=(rangeActive?list.filter(cupInRange):list.filter(p=>{ if(!p.date)return false; const [m]=p.date.split('/').map(Number); return m-1===month; })).sort((a,b)=>cupDateVal(a.date)-cupDateVal(b.date)||a.id.localeCompare(b.id));
+  const cardPours=(rangeActive?list.filter(cupInRange):list.filter(p=>{ const dt=cupParseDate(p.date); return dt&&dt.y===year&&dt.mo-1===month; })).sort((a,b)=>cupDateVal(a.date)-cupDateVal(b.date)||a.id.localeCompare(b.id));
   const cardLbl=rangeActive?('Pours '+(STATE.pourFrom||'…')+' → '+(STATE.pourTo||'…')):(monthName+' pours');
   const cardsBelow=`<div style="padding:18px 20px 8px;display:flex;align-items:center;gap:8px;border-top:1px solid rgba(255,255,255,.06);margin-top:14px"><span class="ms" style="font-size:17px;color:#8B5CF6">view_agenda</span><span style="font-size:12.5px;font-weight:650">${esc(cardLbl)}</span><span class="mono" style="font-size:10px;color:#7A8290">${cardPours.length} pour${cardPours.length===1?'':'s'}</span>${rangeActive?`<span style="font-size:10.5px;color:#9B8CF6;cursor:pointer;margin-left:4px" onclick="cupClearRange()">clear range</span>`:''}</div><div style="padding:0 20px 24px">${cupPourCardGrid(cardPours)}</div>`;
   return `<div style="flex:1;overflow:auto;display:flex;flex-direction:column;min-height:0;padding-bottom:18px">${nav}<div style="padding:0 20px"><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:5px">${wk}</div><div style="display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:minmax(80px,1fr);gap:5px">${cells}</div></div>${unschedHtml}${cardsBelow}</div>`; }
@@ -1772,6 +1813,8 @@ function otherHTML(t){ const M2={submittals:['description','Submittal log','Subm
    COPILOT (MiniMax)
    ============================================================================ */
 function renderCopilot(){ const host=document.getElementById('copilot'); if(!host)return;
+  if(STATE.railCollapsed&&!STATE.chatOpen){ host.style.cssText='flex:0 0 auto;margin-top:8px';
+    host.innerHTML=`<div onclick="toggleChat()" title="Ask OpenYap" style="display:flex;justify-content:center;padding:9px 0;border-radius:11px;cursor:pointer;background:rgba(255,255,255,.028);border:1px solid rgba(255,255,255,.08)">${brandMark(26)}</div>`; return; }
   if(!STATE.chatOpen){ host.style.cssText='flex:0 0 auto;margin-top:8px';
     host.innerHTML=`<div onclick="toggleChat()" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:11px;cursor:pointer;background:rgba(255,255,255,.028);border:1px solid rgba(255,255,255,.08)">${brandMark(26)}
       <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:650">Ask OpenYap</div><div class="mono" style="font-size:9px;color:#8A92A0;letter-spacing:.5px">SITE COPILOT</div></div>
@@ -1789,7 +1832,7 @@ function renderCopilot(){ const host=document.getElementById('copilot'); if(!hos
       <div onclick="sendChat()" class="grad" style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0"><span class="ms" style="font-size:16px;color:#fff">arrow_upward</span></div></div></div>`;
   const sc=document.getElementById('chatScroll'); if(sc)sc.scrollTop=sc.scrollHeight; const inp=document.getElementById('chatInput'); if(inp)inp.focus();
 }
-function toggleChat(){ setS({chatOpen:!STATE.chatOpen,roleMenuOpen:false}); renderRail(); }
+function toggleChat(){ const open=!STATE.chatOpen; setS({chatOpen:open,roleMenuOpen:false}); if(open&&STATE.railCollapsed)STATE.railCollapsed=false; renderRail(); }
 function chipAsk(t){ STATE.chatInput=t; sendChat(); }
 window.toggleChat=toggleChat; window.chipAsk=chipAsk;
 let _mmKey=null;

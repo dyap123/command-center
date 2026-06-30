@@ -62,8 +62,9 @@
   .seg{display:flex;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:2px}
   .segbtn{padding:5px 12px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;color:#7A8290;border:0;background:transparent}
   .segbtn.on{background:rgba(139,92,246,.18);color:#C9BBFF}
-  .fld{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:9px 11px;color:#E6E9EF;font-size:12.5px;outline:none}
+  .fld{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:9px 11px;color:#E6E9EF;font-size:12.5px;outline:none;color-scheme:dark}
   .fld:focus{border-color:rgba(139,92,246,.5)}
+  select.fld option{background:#161A22;color:#E6E9EF}
   .srch-hide{display:none!important}
   @keyframes spin{to{transform:rotate(360deg)}}
   .dt{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -1185,7 +1186,7 @@ function editRfiScope(id){ if(!requireRfiEdit(()=>editRfiScope(id)))return; cons
   openModal(`<div style="font-size:16px;font-weight:650;margin-bottom:2px;display:flex;align-items:center;gap:7px"><span class="ms" style="color:${RFI_CYAN}">help</span>RFI ${esc(r.number||'')}</div>
     <div style="font-size:12px;color:#7A8290;margin-bottom:12px">Mark the area this RFI covers — by footing type (auto cyan tint) and/or a drawn region. Both show on the map’s RFI layer.</div>
     <div style="font-size:12px;font-weight:600;margin-bottom:6px">Status</div>
-    <select class="fld" id="reS" style="width:100%;margin-bottom:14px"><option ${r.status==='Open'?'selected':''}>Open</option><option ${r.status==='Answered'?'selected':''}>Answered</option><option ${r.status==='Closed'?'selected':''}>Closed</option></select>
+    <select class="fld" id="reS" style="width:100%;margin-bottom:14px">${['Submitted','Returned','Draft','Void','Open','Answered','Closed'].map(s=>`<option ${r.status===s?'selected':''}>${s}</option>`).join('')}</select>
     <div style="font-size:12px;font-weight:600;margin-bottom:6px">Region on the plan</div>
     <div style="display:flex;gap:8px;margin-bottom:14px"><button class="btn" style="flex:1" onclick="startRegionDraw('${id}')"><span class="ms" style="font-size:16px;color:${RFI_CYAN}">gesture</span>${hasReg?'Redraw region':'Draw region'}</button>${hasReg?`<button class="btn" onclick="clearRfiRegion('${id}')"><span class="ms" style="font-size:15px">ink_eraser</span>Clear</button>`:''}</div>
     <div style="font-size:12px;font-weight:600;margin-bottom:8px">Applies to footing types</div>${RFI_SCOPE_BOX}

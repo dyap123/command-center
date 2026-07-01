@@ -797,7 +797,10 @@ function renderRfiTray(){ const host=document.getElementById('rfitray'); if(!hos
     <div style="flex:1;min-width:0"><div class="mono" style="font-size:11px;font-weight:650;color:#C9BBFF">${esc(r.number)}</div><div style="font-size:10px;color:#9AA3B0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.title||'')}</div></div>
     <span style="${pill(r.status)}">${esc(r.status||'')}</span></div>`).join('') + (list.length>40?`<div style="text-align:center;font-size:10px;color:#5B636F;padding:4px">+${list.length-40} more — refine search</div>`:'');
 }
-function rfiAvail(){ const placed=new Set(Object.values(DATA.rfi).map(r=>r.number)); return RFI_DRIVE.filter(r=>!placed.has(r.number)); }
+// An RFI counts as "on the map" only if it actually shows something — a drawn region OR a footing scope.
+// Records with neither (e.g. an old drag that was never drawn) are NOT placed, so they stay available in the tray.
+function rfiPlaced(r){ return !!r && ((Array.isArray(r.region)&&r.region.length>=3) || (r.appliesTo&&(r.appliesTo.all||(Array.isArray(r.appliesTo.families)&&r.appliesTo.families.length)||(Array.isArray(r.appliesTo.codes)&&r.appliesTo.codes.length)))); }
+function rfiAvail(){ const placed=new Set(Object.values(DATA.rfi).filter(rfiPlaced).map(r=>r.number)); return RFI_DRIVE.filter(r=>!placed.has(r.number)); }
 let _rfiTrayQ='';
 window.rfiTraySearch=function(v){ _rfiTrayQ=v; renderRfiTray(); };
 function rfiTrayList(){ const q=(_rfiTrayQ||'').trim().toLowerCase(); const l=rfiAvail(); return q?l.filter(r=>((r.number||'')+' '+(r.title||'')+' '+(r.status||'')).toLowerCase().includes(q)):l; }
@@ -817,21 +820,24 @@ function rfiChipUp(e){ const d=_chipDrag; _chipDrag=null; if(!d)return; if(d.gho
   let overMap=false; if(_cv){const r=_cv.getBoundingClientRect();overMap=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;}
   if(d.moved&&overMap){ _cvRect=null; const r=cvRect(); const f=toFrac(e.clientX-r.left,e.clientY-r.top); createRfiAndDraw(d.rfi,[+f.fx.toFixed(4),+f.fy.toFixed(4)]); }
   else assignDriveRfi(d.rfi); }
-function createRfiAndDraw(rfi,firstPt){ if(!requireRfiEdit(()=>createRfiAndDraw(rfi,firstPt)))return; const id=ccPush('rfi',null).key;
-  const rec={number:rfi.number||'RFI',title:rfi.title||'',status:rfi.status||'Open',viewUrl:rfi.viewUrl||'',cover:rfi.cover||null,appliesTo:{all:false,families:[],codes:[]},by:ME.name||ME.email,at:Date.now()};
-  DATA.rfi[id]=rec; if(onMap()){renderRfiTray();renderLayerPanel();} ccSet('rfi/'+id,rec).catch(e=>toast(e.message,'err'));
-  startRegionDraw(id); }   // start empty — drag a clean box (no seeded point / stray rubber-band line)
+// Drag a Drive RFI onto the map → start drawing its zone, but DON'T register the RFI yet.
+// It's created only when the zone is finished (finishRegionDraw). Cancel/Esc = nothing added, chip stays in the tray.
+function createRfiAndDraw(rfi,firstPt){ if(!requireRfiEdit(()=>createRfiAndDraw(rfi)))return;
+  closeModal(); closeDetail(); M.sel=null;
+  M.regionDraw={id:null,pending:rfi,num:rfi.number||'RFI',pts:[],cur:null};
+  if(STATE.activeTab!=='map')go('map'); if(_cv)_cv.style.cursor='crosshair'; renderRegionBar(); repaint();
+  toast('Click to drop points · 2 = box, 3+ = polygon · Finish to save · Esc cancels','info'); }
 window.createRfiAndDraw=createRfiAndDraw;
 /* ---- RFI region drawing (polygon) — the user outlines an area on the plan ---- */
 function startRegionDraw(id){ if(!requireRfiEdit(()=>startRegionDraw(id)))return; const r=DATA.rfi[id]; if(!r)return;
   closeModal(); closeDetail(); M.sel=null; M.regionDraw={id,num:r.number||'RFI',pts:(Array.isArray(r.region)?r.region.slice():[]),cur:null};
   if(STATE.activeTab!=='map')go('map'); if(_cv)_cv.style.cursor='crosshair'; renderRegionBar(); repaint();
-  toast('Drag a box, or click corners for a polygon · Finish/double-click to close · ⌘Z undo · Esc cancel','info'); }
+  toast('Click to drop points · 2 = box, 3+ = polygon · Finish/double-click to close · ⌘Z undo · Esc cancel','info'); }
 window.startRegionDraw=startRegionDraw;
 function renderRegionBar(){ let bar=document.getElementById('regionBar'); if(!bar){ bar=document.createElement('div'); bar.id='regionBar'; document.body.appendChild(bar); }
   const n=M.regionDraw?M.regionDraw.pts.length:0;
   bar.style.cssText='position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:60;display:flex;gap:9px;align-items:center;background:rgba(16,20,26,.97);backdrop-filter:blur(10px);border:1px solid '+hexA(RFI_CYAN,.45)+';border-radius:13px;padding:9px 13px;box-shadow:0 18px 44px rgba(0,0,0,.55)';
-  bar.innerHTML=`<span class="ms" style="color:${RFI_CYAN};font-size:18px">gesture</span><span style="font-size:12px;color:#C7CDD6">Zone for <b style="color:${RFI_CYAN}">${esc(M.regionDraw?M.regionDraw.num:'')}</b> · <b>drag a box</b> or click corners · <span id="regionPtCount">${n}</span> pts</span>
+  bar.innerHTML=`<span class="ms" style="color:${RFI_CYAN};font-size:18px">gesture</span><span style="font-size:12px;color:#C7CDD6">Zone for <b style="color:${RFI_CYAN}">${esc(M.regionDraw?M.regionDraw.num:'')}</b> · <b>click to drop points</b> (2 = box, 3+ = polygon) · <span id="regionPtCount">${n}</span> pts</span>
     <button class="ghostbtn" style="padding:5px 9px;font-size:11px" onclick="undoRegionPoint()"><span class="ms" style="font-size:14px">undo</span>Undo</button>
     <button class="btn" style="padding:6px 11px" onclick="cancelRegionDraw()">Cancel</button>
     <button class="btn primary grad" style="padding:6px 12px" onclick="finishRegionDraw()">Finish</button>`; }
@@ -843,8 +849,16 @@ window.cancelRegionDraw=cancelRegionDraw;
 function finishRegionDraw(){ const rd=M.regionDraw; if(!rd)return; let pts=rd.pts.slice();
   if(pts.length===2){ const a=pts[0],b=pts[1]; pts=[[a[0],a[1]],[b[0],a[1]],[b[0],b[1]],[a[0],b[1]]]; }   // 2 corners → box
   if(pts.length<3)return toast('Drop at least 2 points (a box) or 3+ for a polygon','warn');
-  const id=rd.id; M.regionDraw=null; removeRegionBar(); if(_cv)_cv.style.cursor='';
-  if(DATA.rfi[id])DATA.rfi[id].region=pts; M.sel={kind:'rfi',id,data:DATA.rfi[id]};
+  M.regionDraw=null; removeRegionBar(); if(_cv)_cv.style.cursor='';
+  if(rd.pending){   // dragged-from-tray RFI: register it NOW that a real zone exists (reuse an earlier empty record for this number, if any)
+    const rfi=rd.pending; let id=Object.keys(DATA.rfi).find(k=>DATA.rfi[k]&&DATA.rfi[k].number===rfi.number&&!rfiPlaced(DATA.rfi[k]));
+    if(!id)id=ccPush('rfi',null).key;
+    const rec={number:rfi.number||'RFI',title:rfi.title||'',status:rfi.status||'Submitted',viewUrl:rfi.viewUrl||'',cover:rfi.cover||null,appliesTo:{all:false,families:[],codes:[]},region:pts,by:ME.name||ME.email,at:Date.now()};
+    DATA.rfi[id]=rec; buildFootRFI(); M.sel={kind:'rfi',id,data:rec};
+    if(onMap()){renderRfiTray();renderLayerPanel();} repaint(); openDetail(M.sel);
+    ccSet('rfi/'+id,rec).then(()=>{toast('RFI added to map ✓','ok');if(STATE.activeTab==='rfis')renderBody();}).catch(e=>{delete DATA.rfi[id];buildFootRFI();if(onMap())renderRfiTray();repaint();toast(e.message,'err');});
+    return; }
+  const id=rd.id; if(DATA.rfi[id])DATA.rfi[id].region=pts; M.sel={kind:'rfi',id,data:DATA.rfi[id]};
   repaint(); openDetail(M.sel);   // keep the current view (drawn where you're looking) + show its info/delete
   ccUpdate('rfi/'+id,{region:pts}).then(()=>{toast('Zone saved ✓','ok');if(STATE.activeTab==='rfis')renderBody();}).catch(e=>toast(e.message,'err')); }
 window.finishRegionDraw=finishRegionDraw;
@@ -1014,8 +1028,6 @@ function drawRFIs(ctx){ for(const [id,r] of Object.entries(DATA.rfi)){ try{
   }catch(_){} } }
 // Live draw preview — flat & simple: a plain cyan rectangle (box) or polyline (polygon). No glow/handles.
 function drawRegionDraft(ctx){ const rd=M.regionDraw; if(!rd)return;
-  if(rd.boxPx){ const p=rd.boxPx,x=Math.min(p[0],p[2]),y=Math.min(p[1],p[3]),w=Math.abs(p[2]-p[0]),h=Math.abs(p[3]-p[1]);   // raw cursor px so it tracks the cursor exactly
-    ctx.fillStyle=hexA(RFI_CYAN,.13);ctx.fillRect(x,y,w,h);ctx.strokeStyle=RFI_CYAN;ctx.lineWidth=1.5;ctx.strokeRect(x,y,w,h);return; }
   const pts=rd.pts.map(p=>S(p[0]*M.planW,p[1]*M.planH)); if(!pts.length)return;
   if(pts.length>=3){ ctx.beginPath();pts.forEach((s,i)=>i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y));ctx.closePath();ctx.fillStyle=hexA(RFI_CYAN,.1);ctx.fill(); }
   ctx.beginPath();pts.forEach((s,i)=>i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y));
@@ -1054,7 +1066,7 @@ function wireMap(){ const el=_cv; const _tp=new Map();   // active touch pointer
       if(_tp.size===2){ M.drag=null; const a=[..._tp.values()]; M._pinch={d:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),mx:(a[0].x+a[1].x)/2,my:(a[0].y+a[1].y)/2}; return; }   // second finger → start pinch
       if(_tp.size>2)return; }
     _cvRect=null;const r=cvRect(),x=e.clientX-r.left,y=e.clientY-r.top;
-    if(M.regionDraw){const f=toFrac(x,y);el.setPointerCapture(e.pointerId);M.regionDraw.down={fx:f.fx,fy:f.fy,x,y,drag:false};return;}   // drag = box · click = polygon point
+    if(M.regionDraw){const f=toFrac(x,y);el.setPointerCapture(e.pointerId);M.regionDraw.down={fx:f.fx,fy:f.fy,x,y};return;}   // each click/tap drops one polygon point
     if(M.tool==='note'){const f=toFrac(x,y);addMarkup(f.fx,f.fy);toggleNote();return;}
     const hit=hitTest(x,y); if(hit){M.sel=hit;repaint();openDetail(hit);return;}
     el.setPointerCapture(e.pointerId);el.style.cursor='grabbing';M.drag={x,y,tx:M.view.tx,ty:M.view.ty,moved:false};});
@@ -1066,7 +1078,7 @@ function wireMap(){ const el=_cv; const _tp=new Map();   // active touch pointer
       if(M._pinch.d>0)zoomAt(nmx-rc.left,nmy-rc.top,nd/M._pinch.d); else repaint();   // pinch zoom about the gesture midpoint (zoomAt repaints)
       M._pinch={d:nd,mx:nmx,my:nmy}; } return; }
     if(M.regionDraw)_cvRect=null;const r=cvRect(),x=e.clientX-r.left,y=e.clientY-r.top;   // fresh rect while drawing so the box tracks the cursor even if the layout shifts/scrolls
-    if(M.regionDraw){const f=toFrac(x,y);M.regionDraw.cur=[f.fx,f.fy];const d=M.regionDraw.down;if(d){if(!d.drag&&Math.hypot(x-d.x,y-d.y)>5)d.drag=true;M.regionDraw.boxPx=d.drag?[d.x,d.y,x,y]:null;}repaint();return;}
+    if(M.regionDraw){const f=toFrac(x,y);M.regionDraw.cur=[f.fx,f.fy];repaint();return;}   // rubber-band from last point to cursor
     if(M.drag){M.userView=true;M.view.tx=M.drag.tx+(x-M.drag.x);M.view.ty=M.drag.ty+(y-M.drag.y);M.drag.moved=true;repaint();return;}
     _hovXY={x,y}; if(_hovPend)return; _hovPend=true;
     requestAnimationFrame(()=>{ _hovPend=false; const {x,y}=_hovXY; const hit=hitTest(x,y);
@@ -1079,9 +1091,8 @@ function wireMap(){ const el=_cv; const _tp=new Map();   // active touch pointer
     const wasPinch=_tp.has(e.pointerId)&&(_tp.size>=2||!!M._pinch);
     if(_tp.has(e.pointerId)){ _tp.delete(e.pointerId); if(_tp.size<2)M._pinch=null; }
     if(wasPinch){ M.drag=null; return; }   // lifting a finger from a pinch — not a tap/drag-end
-    if(M.regionDraw&&M.regionDraw.down){ _cvRect=null; const r=cvRect(),x=e.clientX-r.left,y=e.clientY-r.top,f=toFrac(x,y),d=M.regionDraw.down; M.regionDraw.down=null;M.regionDraw.boxPx=null;
-      if(d.drag){ M.regionDraw.pts=[[+d.fx.toFixed(4),+d.fy.toFixed(4)],[+f.fx.toFixed(4),+f.fy.toFixed(4)]]; finishRegionDraw(); }   // box → save
-      else { M.regionDraw.pts.push([+d.fx.toFixed(4),+d.fy.toFixed(4)]); const c=document.getElementById('regionPtCount'); if(c)c.textContent=M.regionDraw.pts.length; repaint(); }   // click → vertex
+    if(M.regionDraw&&M.regionDraw.down){ const d=M.regionDraw.down; M.regionDraw.down=null;
+      M.regionDraw.pts.push([+d.fx.toFixed(4),+d.fy.toFixed(4)]); const c=document.getElementById('regionPtCount'); if(c)c.textContent=M.regionDraw.pts.length; repaint();   // each release drops one point
       return; }
     if(M.drag&&!M.drag.moved){M.sel=null;M.selPour=null;closeDetail();renderDock();repaint();}M.drag=null;el.style.cursor=M.tool==='note'?'crosshair':(M.scrollMode==='zoom'?'zoom-in':'grab');});
   el.addEventListener('pointerleave',()=>{if(M.hovFoot||M.hovPour){M.hovFoot=null;M.hovPour=null;const hc=document.getElementById('hovcard');if(hc)hc.innerHTML='';repaint();}});

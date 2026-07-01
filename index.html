@@ -288,9 +288,10 @@ function loadAttDay(date){ DATA.att.date=date; fetch(DBURL+'/foreman-attendance/
 window.loadAttDay=loadAttDay;
 // a real pour has content; bare/empty stray zones ("ghost pours") are filtered out
 function realPour(z){ return z && ( z.name || z.cy || z.area || z.sequence!=null || z.pour!=null || z.mix || (Array.isArray(z.points)&&z.points.length>=3) || typeof z.x==='number' ); }
-function refreshPours(){ const out={};
-  Object.entries(DATA.cupPours||{}).forEach(([id,z])=>{ if(realPour(z)) out[id]=normPour(id,z); });
-  Object.entries(DATA.etZones||{}).forEach(([id,z])=>{ if(/WCG|Pours/.test(z.layer||'')&&realPour(z)) out[id]=Object.assign(out[id]||{},normPour(id,z)); });
+function refreshPours(){ const out={}, cup=DATA.cupPours||{};
+  const archived=id=>{ const c=cup[id]; return !!(c&&(c.archived||c.deleted)); };   // a pour archived/deleted in CUP must NOT resurrect from its stale embed-tracker zone copy
+  Object.entries(cup).forEach(([id,z])=>{ if(realPour(z)&&!archived(id)) out[id]=normPour(id,z); });
+  Object.entries(DATA.etZones||{}).forEach(([id,z])=>{ if(/WCG|Pours/.test(z.layer||'')&&realPour(z)&&!archived(id)) out[id]=Object.assign(out[id]||{},normPour(id,z)); });
   _poursCache=out; if(onMap()){renderDock();renderLayerPanel();repaint();} cupReact(); softUpdate(); }
 function normPour(id,z){ let pts=null;
   if(Array.isArray(z.points)&&z.points.length>=3)pts=z.points; else if(typeof z.x==='number'&&typeof z.w==='number')pts=[[z.x,z.y],[z.x+z.w,z.y],[z.x+z.w,z.y+z.h],[z.x,z.y+z.h]];
@@ -640,7 +641,7 @@ const INSP_STAGES=['','READY','PASS','FAIL'], INSP_LABEL={'':'Not started',READY
 const M={ layers:{footings:true,embeds:true,pours:true,rfi:true,markups:true,grid:true},
   view:{tx:0,ty:0,s:1,base:1,init:false}, box:{w:1000,h:700},
   footings:[], byNo:{}, base:null, ox:0, oy:0, planW:0, planH:0, gridCols:[], gridRows:[], emb:null, calib:{dx:0,dy:0,sx:1,sy:1},
-  sel:null, hovFoot:null, hovPour:null, selPour:null, tool:'pan', scrollMode:'pan', dockOpen:true, colorMode:'status', seqFilter:'ALL', calibMode:false, snapEmbeds:true, userView:false, drag:null, regionDraw:null, rfiLabel:'number' };   // rfiLabel: number | name | off — what to print inside each RFI zone
+  sel:null, hovFoot:null, hovPour:null, selPour:null, tool:'pan', scrollMode:'pan', dockOpen:true, colorMode:'status', seqFilter:'ALL', calibMode:false, snapEmbeds:true, userView:false, drag:null, regionDraw:null, rfiLabel:'number', search:'', searchSets:null };   // rfiLabel: number | name | off — what to print inside each RFI zone
 
 function sideFt(t){ t=String(t).toUpperCase(); const F={F6:5,F6A:5,F7:5.5,F7A:6,F8:6.5,F8A:7,F9:7.5,F10:8,F10A:8.5,F11:9,F12:9.5,F12B:10,F12C:10,F14:11,F201:6,F202:6};
   if(F[t]!=null)return F[t]; if(t.indexOf('MPC')===0){const n=parseInt(t.replace(/\D/g,''))||6;return n>=18?26:(n>=8?22:(n>=6?20:18));}
@@ -723,12 +724,18 @@ function renderMap(b){
   b.style.cssText='flex:1;min-height:0;overflow:hidden;position:relative;display:flex;flex-direction:column;animation:oyFade .35s ease';
   const seqs=['ALL','Seq 1','Seq 2','Seq 3','Seq CUP'];
   b.innerHTML=`
-    <div style="flex-shrink:0;display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(255,255,255,.06)">
+    <div style="flex-shrink:0;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid rgba(255,255,255,.06)">
       <div style="font-size:13px;font-weight:650;display:flex;align-items:baseline;gap:9px">Foundation Map <span class="mono" style="font-size:10.5px;color:#6B7280;font-weight:400">${M.footings.filter(f=>!f.del).length} footings · ${Object.values(_poursCache).length} pours · live</span></div>
       <div class="seg"><button class="segbtn on">Explore</button><button class="segbtn">Assign</button><button class="segbtn">Footing</button></div>
       <div style="display:flex;align-items:center;gap:7px"><span class="mono" style="font-size:10px;color:#5B636F">COLOR</span>
         <div class="seg">${['Status','Sequence'].map(c=>`<button class="segbtn ${M.colorMode===c.toLowerCase()?'on':''}" onclick="setColorMode('${c.toLowerCase()}')">${c}</button>`).join('')}</div></div>
       <div style="flex:1"></div>
+      <div style="position:relative">
+        <div style="position:relative"><span class="ms" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:14px;color:#7A8290;pointer-events:none">search</span>
+          <input id="mapSearchInput" autocomplete="off" spellcheck="false" oninput="mapSearch(this.value)" onkeydown="mapSearchKey(event)" placeholder="Find footing #, embed, RFI, pour…" style="width:180px;padding:7px 26px 7px 28px;background:rgba(8,11,18,.7);border:1px solid rgba(255,255,255,.12);border-radius:9px;color:#E6E9EF;font-size:12px;outline:none">
+          <span id="mapSearchClear" onclick="mapSearchClear()" style="display:none;position:absolute;right:7px;top:50%;transform:translateY(-50%);cursor:pointer"><span class="ms" style="font-size:14px;color:#7A8290">close</span></span></div>
+        <div id="mapSearchResults" style="position:absolute;top:calc(100% + 6px);right:0;width:252px;z-index:20"></div>
+      </div>
       <button id="syncMapBtn" class="ghostbtn" onclick="syncMap()" title="Re-pull footings, embeds & pours from the live data"><span class="ms" id="syncMapIcon" style="font-size:15px;color:#22C55E">sync</span>Sync</button>
       <a class="ghostbtn" href="${APP_URLS.cup}" target="_blank"><span class="ms" style="font-size:15px;color:#8B5CF6">open_in_new</span>CUP Pour Dashboard</a>
       <a class="ghostbtn" href="${APP_URLS.embed}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>EmbedYap</a>
@@ -924,6 +931,40 @@ function setSeq(s){ M.seqFilter=s; M.selPour=null; renderBody(); }
 function toggleLayer(k){ M.layers[k]=!M.layers[k]; renderLayerPanel(); repaint(); if(ME.uid)ccUpdate('prefs/'+ME.uid,{layers:M.layers}).catch(()=>{}); }
 function cycleRfiLabel(){ const o=['number','name','off']; M.rfiLabel=o[(o.indexOf(M.rfiLabel||'number')+1)%o.length]; renderLayerPanel(); repaint(); }   // map label inside RFI zones: #, name, or hidden
 window.cycleRfiLabel=cycleRfiLabel;
+/* ---- Map search: find footings / embeds / RFIs / pours and fly to them (CUP-style, with a results list) ---- */
+function mapSearchMatches(q){ q=String(q||'').toLowerCase().trim(); if(!q)return []; const out=[]; const num=q.replace('#','');
+  for(const f of M.footings){ if(f.del||f.isBeam)continue; const tag=String(f.tag||('#'+f.no)); if(tag.toLowerCase().includes(q)||String(f.no)===num||String(f.type||'').toLowerCase().includes(q)) out.push({kind:'foot',id:String(f.no),label:'FTG '+tag,sub:String(f.type||''),c:'#22C55E'}); }
+  for(const [id,p] of Object.entries(DATA.pins)){ if(typeof p.x!=='number')continue; const eid=String(p.embedId||id); if(eid.toLowerCase().includes(q)) out.push({kind:'pin',id,label:eid,sub:'Embed'+(p.sequence?' · Seq '+p.sequence:''),c:'#3B82F6'}); }
+  for(const [id,r] of Object.entries(DATA.rfi)){ if(String(r.number||'').toLowerCase().includes(q)||String(r.title||'').toLowerCase().includes(q)) out.push({kind:'rfi',id,label:String(r.number||'RFI'),sub:String(r.title||''),c:RFI_CYAN}); }
+  for(const [id,p] of Object.entries(_poursCache)){ if(String(p.name||'').toLowerCase().includes(q)||String(id).toLowerCase().includes(q)) out.push({kind:'pour',id,label:String(p.name||id),sub:'Pour'+(p.sequence?' · Seq '+p.sequence:''),c:'#A855F7'}); }
+  return out; }
+function mapSearch(q){ M.search=String(q||'').toLowerCase().trim(); const all=mapSearchMatches(q);
+  M.searchSets={foot:new Set(),pin:new Set(),rfi:new Set(),pour:new Set()}; all.forEach(m=>M.searchSets[m.kind].add(String(m.id)));
+  if(onMap())repaint();   // live-filter the map: matches stay bright, everything unrelated dims out
+  const box=document.getElementById('mapSearchResults'),clr=document.getElementById('mapSearchClear'); if(!box)return;
+  if(clr)clr.style.display=q?'block':'none';
+  if(!M.search){ box.innerHTML=''; return; }
+  const show=all.slice(0,12);
+  if(!all.length){ box.innerHTML=`<div style="background:rgba(16,20,26,.94);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px;font-size:11.5px;color:#7A8290">No matches</div>`; return; }
+  box.innerHTML=`<div style="background:rgba(16,20,26,.97);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.12);border-radius:10px;overflow:hidden;box-shadow:0 18px 44px rgba(0,0,0,.55);max-height:322px;overflow-y:auto">`
+    +show.map((m,i)=>`<div onclick="mapSearchGo('${m.kind}','${String(m.id).replace(/'/g,"\\'")}')" style="display:flex;align-items:center;gap:9px;padding:8px 11px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05)${i===0?';background:rgba(139,92,246,.12)':''}">
+      <span style="width:8px;height:8px;border-radius:2px;background:${m.c};flex-shrink:0;box-shadow:0 0 7px ${hexA(m.c,.6)}"></span>
+      <span style="font-size:12px;font-weight:600;color:#E6E9EF;white-space:nowrap;flex-shrink:0">${esc(m.label)}</span>
+      <span style="flex:1;min-width:0;font-size:10.5px;color:#7A8290;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right">${esc(m.sub)}</span></div>`).join('')
+    +(all.length>show.length?`<div style="padding:6px 11px;font-size:10px;color:#5B636F">+${all.length-show.length} more — keep typing…</div>`:'')+`</div>`; }
+function mapSearchKey(e){ if(e.key==='Enter'){ const all=mapSearchMatches(e.target.value); if(all.length)mapSearchGo(all[0].kind,String(all[0].id)); } else if(e.key==='Escape'){ mapSearchClear(); } }
+function mapSearchClear(){ const i=document.getElementById('mapSearchInput'); if(i)i.value=''; const b=document.getElementById('mapSearchResults'); if(b)b.innerHTML=''; const c=document.getElementById('mapSearchClear'); if(c)c.style.display='none'; M.search=''; M.searchSets=null; if(onMap())repaint(); }
+function flyToWorld(wx,wy,zoom){ const W=M.box.w,H=M.box.h; M.userView=true; if(zoom)M.view.s=clampS(zoom); M.view.tx=W/2-wx*M.view.s; M.view.ty=H/2-wy*M.view.s; repaint(); }
+function flashAt(wx,wy){ M.flash={wx,wy,n:0}; const step=()=>{ if(!M.flash)return; M.flash.n++; draw(); if(M.flash.n<26)requestAnimationFrame(step); else{ M.flash=null; draw(); } }; requestAnimationFrame(step); }
+function mapSearchGo(kind,id){ let wx,wy;
+  if(kind==='rfi'){ focusRfi(id); const r=DATA.rfi[id],b=r&&regionBounds(r); if(b){wx=(b.x0+b.x1)/2;wy=(b.y0+b.y1)/2;} }
+  else if(kind==='pour'){ const p=_poursCache[id],h=poolHull(id); if(h&&h.length){ const c=h.reduce((a,q)=>[a[0]+q[0],a[1]+q[1]],[0,0]).map(v=>v/h.length); wx=c[0];wy=c[1]; } M.sel=p?{kind:'pour',id,data:p}:null; if(wx!=null)flyToWorld(wx,wy,(M.view.base||0.02)*3); if(M.sel)openDetail(M.sel); }
+  else if(kind==='pin'){ const p=DATA.pins[id]; if(p){ const pp=pinPos(id,p); wx=pp.x;wy=pp.y; M.sel={kind:'pin',id,data:p}; flyToWorld(wx,wy,(M.view.base||0.02)*6); openDetail(M.sel); } }
+  else if(kind==='foot'){ const f=M.footings.find(x=>String(x.no)===String(id)); if(f){ wx=f.cx;wy=f.cy; M.sel={kind:'foot',id:f.no,data:f}; flyToWorld(wx,wy,(M.view.base||0.02)*6); openDetail(M.sel); } }
+  if(wx!=null)setTimeout(()=>flashAt(wx,wy),kind==='rfi'?90:10);   // rfi flies via focusRfi's own setTimeout — flash once it settles
+  const b=document.getElementById('mapSearchResults'); if(b)b.innerHTML=''; }
+window.mapSearch=mapSearch; window.mapSearchKey=mapSearchKey; window.mapSearchClear=mapSearchClear; window.mapSearchGo=mapSearchGo;
+function srchA(kind,id){ if(!M.search)return 1; return (M.searchSets&&M.searchSets[kind]&&M.searchSets[kind].has(String(id)))?1:0.08; }   // search dim: unrelated elements fade so matches "reveal"
 function hovPour(id){ M.hovPour=id; repaint(); }
 function isoPour(id){ M.selPour=M.selPour===id?null:id; renderDock(); repaint(); }
 function zoomBtn(f){ zoomAt(M.box.w/2,M.box.h/2,f); }
@@ -984,6 +1025,7 @@ function draw(){ if(!_cv||!_ctx)return; const dpr=Math.min(window.devicePixelRat
   if(M.layers.markups) drawMarkups(ctx);
   if(M.layers.rfi) drawRFIs(ctx);
   if(M.regionDraw) drawRegionDraft(ctx);
+  if(M.flash){ const s=S(M.flash.wx,M.flash.wy),p=M.flash.n/26,rad=10+p*40; ctx.save();ctx.beginPath();ctx.arc(s.x,s.y,rad,0,6.2832);ctx.strokeStyle=hexA('#FFFFFF',Math.max(0,0.9*(1-p)));ctx.lineWidth=3;ctx.stroke();ctx.restore(); }   // search "locate" pulse
 }
 // CUP-style: the REAL digitized gridlines (M.gridCols/M.gridRows, world coords) as dashed lines spanning
 // the viewport, with constant-size label chips (column letters along top, row numbers along left).
@@ -1008,7 +1050,7 @@ function drawFootings(ctx){ const isoOn=!!M.selPour, W=M.box.w, H=M.box.h;
     const visible=M.seqFilter==='ALL'||('Seq '+seq)===M.seqFilter||(M.seqFilter==='Seq CUP'&&seq.toUpperCase()==='CUP');
     const col=M.colorMode==='sequence'?(p&&p.sequence?SEQPAL[(isNaN(parseInt(p.sequence))?0:parseInt(p.sequence))%SEQPAL.length]:'#566072'):(p?POURCOL[p.status]||'#566072':TYPECOL(f.type));
     const dim=isoOn&&M.selPour!==pid; const hot=M.hovPour===pid||(M.hovFoot&&M.hovFoot===f.no);
-    const alpha=!visible?0.05:dim?0.16:1;
+    const alpha=(!visible?0.05:dim?0.16:1)*srchA('foot',f.no);
     if(f.isBeam&&f.beam){ const p1=S(f.beam.x1,f.beam.y1),p2=S(f.beam.x2,f.beam.y2);
       if(Math.max(p1.x,p2.x)<-30||Math.max(p1.y,p2.y)<-30||Math.min(p1.x,p2.x)>W+30||Math.min(p1.y,p2.y)>H+30)continue;
       ctx.globalAlpha=alpha*0.6;ctx.strokeStyle='rgba(120,140,170,.5)';ctx.lineWidth=Math.max(1.4,(f.w*0.5)*M.view.s);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.stroke();ctx.globalAlpha=1;continue; }
@@ -1028,7 +1070,7 @@ function drawPins(ctx){ _hasUrgent=false;
   // pins scale with zoom so the zoomed-out launch view isn't a sea of big circles
   const rb=Math.max(2.2,Math.min(7,3.4*Math.sqrt(Math.max(.2,M.view.s/(M.view.base||1))))), km=Math.max(3,rb*0.85), kd=Math.max(1.8,rb*0.5);
   for(const [id,p] of Object.entries(DATA.pins)){ if(typeof p.x!=='number')continue; const pp=pinPos(id,p); const s=S(pp.x,pp.y);
-    if(s.x<-30||s.y<-30||s.x>M.box.w+30||s.y>M.box.h+30)continue; const sel=M.sel&&M.sel.kind==='pin'&&M.sel.id===id;
+    if(s.x<-30||s.y<-30||s.x>M.box.w+30||s.y>M.box.h+30)continue; const sel=M.sel&&M.sel.kind==='pin'&&M.sel.id===id; ctx.globalAlpha=srchA('pin',id);
     const col=(p.stubColumn&&!p.installed)?'#FF9650':PIN_COL[pinState(p)]; const urgent=p.rfi&&p.rfi.status==='Open';
     const r=sel?rb+1.6:rb;
     if(urgent){ _hasUrgent=true; const pulse=1.5+2*Math.abs(Math.sin(Date.now()/350)); ctx.beginPath();ctx.arc(s.x,s.y,r+pulse,0,6.2832);ctx.fillStyle=hexA('#EF4444',.15);ctx.fill(); }
@@ -1036,6 +1078,7 @@ function drawPins(ctx){ _hasUrgent=false;
     ctx.beginPath();ctx.arc(s.x,s.y,r,0,6.2832);ctx.fillStyle=col;ctx.fill();ctx.lineWidth=sel?2:1.3;ctx.strokeStyle=sel?'#fff':'rgba(9,12,17,.85)';ctx.stroke();
     if(p.knifePlate&&rb>3){ctx.save();ctx.translate(s.x-r-1,s.y-r-1);ctx.rotate(.785);ctx.fillStyle='#3B82F6';ctx.fillRect(-km/2,-km/2,km,km);ctx.restore();}
     if(p.rfi){ctx.beginPath();ctx.arc(s.x+r,s.y-r,kd,0,6.2832);ctx.fillStyle=p.rfi.status==='Open'?'#EF4444':p.rfi.status==='Answered'?'#F59E0B':'#566072';ctx.fill();}
+    ctx.globalAlpha=1;
   }
   if(_hasUrgent) scheduleAnim();
 }
@@ -1044,11 +1087,11 @@ function drawPins(ctx){ _hasUrgent=false;
 function poolHull(pid){ const mem=M.footings.filter(f=>!f.del&&DATA.footingPours[f.no]===pid); if(mem.length<1)return null;
   if(mem.length<3){ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; mem.forEach(f=>{x0=Math.min(x0,f.cx-f.w/2);y0=Math.min(y0,f.cy-f.h/2);x1=Math.max(x1,f.cx+f.w/2);y1=Math.max(y1,f.cy+f.h/2);}); return [[x0-14,y0-14],[x1+14,y0-14],[x1+14,y1+14],[x0-14,y1+14]]; }
   return convexHull(mem.map(f=>[f.cx,f.cy]),20); }
-function drawPours(ctx){ const W=M.box.w,H=M.box.h; for(const p of Object.values(_poursCache)){ const hull=poolHull(p.id); if(!hull||hull.length<3)continue; const c=POURCOL[p.status]||'#566072';
+function drawPours(ctx){ const W=M.box.w,H=M.box.h; for(const p of Object.values(_poursCache)){ const hull=poolHull(p.id); if(!hull||hull.length<3)continue; const c=POURCOL[p.status]||'#566072'; ctx.globalAlpha=srchA('pour',p.id);
   let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9; const sp=hull.map(q=>{const s=S(q[0],q[1]);if(s.x<minx)minx=s.x;if(s.y<miny)miny=s.y;if(s.x>maxx)maxx=s.x;if(s.y>maxy)maxy=s.y;return s;});
   if(maxx<-20||maxy<-20||minx>W+20||miny>H+20)continue;
   ctx.beginPath();sp.forEach((s,i)=>{i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y);});ctx.closePath();
-  const sel=M.selPour===p.id||M.hovPour===p.id; ctx.fillStyle=hexA(c,sel?.16:.06);ctx.fill();ctx.strokeStyle=hexA(c,sel?.95:.5);ctx.lineWidth=sel?2:1.3;ctx.setLineDash(p.status==='COMPLETE'?[]:[9,7]);ctx.stroke();ctx.setLineDash([]); } }
+  const sel=M.selPour===p.id||M.hovPour===p.id; ctx.fillStyle=hexA(c,sel?.16:.06);ctx.fill();ctx.strokeStyle=hexA(c,sel?.95:.5);ctx.lineWidth=sel?2:1.3;ctx.setLineDash(p.status==='COMPLETE'?[]:[9,7]);ctx.stroke();ctx.setLineDash([]); ctx.globalAlpha=1; } }
 function drawMarkups(ctx){ for(const [id,m] of Object.entries(DATA.markups)){ if(typeof m.x!=='number')continue; const s=S(m.x*M.planW,m.y*M.planH);
   if(s.x<-40||s.y<-40||s.x>M.box.w+40||s.y>M.box.h+40)continue;
   ctx.fillStyle='#F59E0B';ctx.beginPath();ctx.moveTo(s.x,s.y-9);ctx.lineTo(s.x+5,s.y-3);ctx.lineTo(s.x+5,s.y);ctx.lineTo(s.x-5,s.y);ctx.lineTo(s.x-5,s.y-3);ctx.closePath();ctx.fill();
@@ -1057,7 +1100,7 @@ function drawMarkups(ctx){ for(const [id,m] of Object.entries(DATA.markups)){ if
 // assignments are shown by highlighting the footings themselves (drawFootings) — no big hull blob. Clean, flat,
 // no shadows. Per-RFI try/catch so one bad record can't blank the canvas. Toggles with M.layers.rfi.
 function drawRFIs(ctx){ for(const [id,r] of Object.entries(DATA.rfi)){ try{
-    const regs=rfiRegions(r); if(!regs.length)continue;
+    const regs=rfiRegions(r); if(!regs.length)continue; ctx.globalAlpha=srchA('rfi',id);
     const sel=M.sel&&M.sel.kind==='rfi'&&M.sel.id===id; const mode=M.rfiLabel||'number';
     let lbl=mode==='name'?(r.title||r.number||'RFI'):(r.number||'RFI'); if(lbl.length>28)lbl=lbl.slice(0,27)+'…';   // # (default) / name / off — names truncate so small zones don't overflow
     for(const reg of regs){ const pts=reg.map(p=>S(p[0]*M.planW,p[1]*M.planH));
@@ -1068,7 +1111,7 @@ function drawRFIs(ctx){ for(const [id,r] of Object.entries(DATA.rfi)){ try{
         ctx.font="600 10px Inter,system-ui,sans-serif"; const w=ctx.measureText(lbl).width;
         ctx.fillStyle='rgba(6,20,26,.9)';ctx.fillRect(cx-w/2-6,cy-8,w+12,16);
         ctx.fillStyle=RFI_CYAN;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(lbl,cx,cy);ctx.textAlign='left';ctx.textBaseline='alphabetic'; } }
-  }catch(_){} } }
+  }catch(_){} } ctx.globalAlpha=1; }
 // Live draw preview — flat & simple: a plain cyan rectangle (box) or polyline (polygon). No glow/handles.
 function drawRegionDraft(ctx){ const rd=M.regionDraw; if(!rd)return;
   const pts=rd.pts.map(p=>S(p[0]*M.planW,p[1]*M.planH)); if(!pts.length)return;

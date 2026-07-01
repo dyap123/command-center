@@ -469,7 +469,7 @@ function switchRole(k){ if(AUTH_OK && realRoleKey()!=='admin'){ setS({roleMenuOp
   setS({viewRole:k,pendingRole:k,roleMenuOpen:false,schedView:null}); renderRail(); renderTopbar();
   if(navLocked(STATE.activeTab)) go('map'); else renderBody(); }
 window.toggleRoleMenu=toggleRoleMenu; window.switchRole=switchRole;
-function go(tab){ if(navLocked(tab))return; if(tab!=='map'&&M.regionDraw){M.regionDraw=null;const b=document.getElementById('regionBar');if(b)b.remove();} setS({activeTab:tab,roleMenuOpen:false}); M.sel=null; renderRail(); renderTopbar(); renderBody(); }
+function go(tab){ if(navLocked(tab))return; if(tab!=='map'&&M.regionDraw){M.regionDraw=null;const b=document.getElementById('regionBar');if(b)b.remove();} if(tab==='schedule')STATE._schedSnap=true; setS({activeTab:tab,roleMenuOpen:false}); M.sel=null; renderRail(); renderTopbar(); renderBody(); }
 window.go=go;
 /* ---- context-aware top search (filters [data-search] rows in the active tab) ---- */
 const SEARCH_TABS={schedule:'Find a task…',tools:'Search inventory…',rfis:'Search RFIs…',pours:'Find a pour…',attendance:'Search crew…',submittals:'Search submittals…'};
@@ -485,7 +485,7 @@ function renderBody(){
   if(t==='map'){ renderMap(b); return; }
   b.style.cssText='flex:1;overflow:auto;position:relative';
   if(t==='dashboard') b.innerHTML=dashboardHTML();
-  else if(t==='schedule') b.innerHTML=scheduleHTML();
+  else if(t==='schedule'){ b.innerHTML=scheduleHTML(); if(STATE._schedSnap){STATE._schedSnap=false;requestAnimationFrame(()=>requestAnimationFrame(schedSnapToday));} }
   else if(t==='tools') b.innerHTML=inventoryHTML();
   else if(t==='attendance') b.innerHTML=attendanceHTML();
   else if(t==='rfis') b.innerHTML=rfiHTML();
@@ -1693,8 +1693,10 @@ function scheduleHTML(){
   if(!p) return `<div style="display:flex;flex-direction:column;height:100%">${head}<div class="full"><span class="ms">calendar_month</span><div>${src==='super'?'No live schedule in SuperYap yet.':'No schedule imported yet.'}</div><div style="font-size:12px;color:#7A8290">${src==='super'?'Build a look-ahead in SuperYap — it appears here live. Or switch to Imported.':(canEdit?'Import a Webcor look-ahead (.xlsx) — dates populate instantly, pour activities create pours. Or pull live from SuperYap.':'A Super can import the look-ahead, or pull it live from SuperYap.')}</div></div></div>`;
   return `<div style="display:flex;flex-direction:column;height:100%;animation:oyFade .35s ease">${head}${sv==='timeline'?ganttHTML(p):listHTML(p)}</div>`;
 }
-function setSched(v){ STATE.schedView=v; renderBody(); }
+function setSched(v){ STATE.schedView=v; if(v==='timeline')STATE._schedSnap=true; renderBody(); }
 window.setSched=setSched;
+function schedSnapToday(){ const el=document.getElementById('ganttScroll'); if(el)el.scrollLeft=+el.dataset.todayx||0; }
+window.schedSnapToday=schedSnapToday;
 /* ---- schedule editing (super → look-ahead-schedule · imported → command-center/schedule) ---- */
 function schedCompanies(){ return Object.assign({}, LA_CO_DEFAULT, (DATA.superSched&&DATA.superSched.companies)||{}); }
 function schedActivePid(){ return schedPid(); }
@@ -1753,17 +1755,17 @@ function ganttHTML(p){
   const todayLine='';
   const tasksBySec={}; tasks.forEach(t=>{(tasksBySec[t.sectionId]=tasksBySec[t.sectionId]||[]).push(t);});
   let secHTML='';
-  secs.forEach(([sid,sec])=>{ const isC=!!collapsed[sid];
-    secHTML+=`<div data-secband="${sid}" style="display:flex"><div style="width:${LEFTW}px;flex-shrink:0;position:sticky;left:0;z-index:5;background:#111722;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:6px;padding:9px 12px;overflow:hidden;box-shadow:6px 0 8px -5px rgba(0,0,0,.6)"><span class="ms" onclick="schedToggleSec('${sid}')" style="font-size:18px;color:#9AA3B0;cursor:pointer">${isC?'chevron_right':'expand_more'}</span><span style="flex:1;font-size:12.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(sec.name)}</span><span class="mono" style="font-size:9.5px;color:#5B636F">${(tasksBySec[sid]||[]).length}</span>${canEdit?`<span class="ms" onclick="schedAddTask('${sid}')" title="Add activity" style="font-size:17px;color:#7A8290;cursor:pointer">add</span>`:''}</div><div style="${tlStyle};border-bottom:1px solid rgba(255,255,255,.06)"></div></div>`;
+  secs.forEach(([sid,sec])=>{ const isC=!!collapsed[sid]; const _st=tasksBySec[sid]||[]; const _sd=_st.filter(t=>{const s=t.start?dayIdx(t.start):0;return (s+(t.days||1)-1)<todayI0;}).length;
+    secHTML+=`<div data-secband="${sid}" style="display:flex"><div style="width:${LEFTW}px;flex-shrink:0;position:sticky;left:0;z-index:5;background:#111722;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:6px;padding:9px 12px;overflow:hidden;box-shadow:6px 0 8px -5px rgba(0,0,0,.6)"><span class="ms" onclick="schedToggleSec('${sid}')" style="font-size:18px;color:#9AA3B0;cursor:pointer">${isC?'chevron_right':'expand_more'}</span><span style="flex:1;font-size:12.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(sec.name)}</span><span class="mono" style="font-size:9.5px;color:${_st.length&&_sd===_st.length?'#22C55E':'#5B636F'}" title="${_sd} of ${_st.length} done (before today)">${_sd}/${_st.length}</span>${canEdit?`<span class="ms" onclick="schedAddTask('${sid}')" title="Add activity" style="font-size:17px;color:#7A8290;cursor:pointer">add</span>`:''}</div><div style="${tlStyle};border-bottom:1px solid rgba(255,255,255,.06)"></div></div>`;
     if(isC)return;
-    (tasksBySec[sid]||[]).sort((a,b)=>(a.order||0)-(b.order||0)).forEach(t=>{ const start=t.start?dayIdx(t.start):0; const days=t.days||1; const cc=t.crewColor||crewColor(t.company); const letter=(t.company||t.companyId||'?').replace(/[^A-Za-z]/g,'').slice(0,1).toUpperCase()||'?'; const hay=esc((t.name+' '+(t.company||t.companyId||'')).toLowerCase());
+    (tasksBySec[sid]||[]).sort((a,b)=>(a.order||0)-(b.order||0)).forEach(t=>{ const start=t.start?dayIdx(t.start):0; const days=t.days||1; const cc=t.crewColor||crewColor(t.company); const letter=(t.company||t.companyId||'?').replace(/[^A-Za-z]/g,'').slice(0,1).toUpperCase()||'?'; const hay=esc((t.name+' '+(t.company||t.companyId||'')).toLowerCase()); const _fin=start+days-1,tDone=_fin<todayI0,tActive=start<=todayI0&&_fin>=todayI0;
       let cells=''; for(let i=0;i<N;i++){ const dd=new Date(anchorD); dd.setDate(dd.getDate()+i); const we=dd.getDay()===0||dd.getDay()===6; const on=i>=start&&i<start+days;
-        cells+=`<div style="flex:1 1 ${cellW}px;min-width:${cellW}px;box-sizing:border-box;height:${rowH}px;border-right:1px solid rgba(255,255,255,.04);${i===todayI0?'background:rgba(59,130,246,.10);':we?'background:rgba(255,255,255,.02);':''}display:flex;align-items:center;justify-content:center;padding:6px 3px">${on?`<div class="mono" style="width:100%;height:100%;background:${cc};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:rgba(11,14,19,.85)">${letter}</div>`:''}</div>`; }
-      const nameCell=canEdit?`<input value="${esc(t.name)}" onchange="schedSetField('${t.id}','name',this.value)" style="flex:1;min-width:0;background:transparent;border:0;outline:0;color:#E6E9EF;font-size:11.5px">`:`<span style="font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</span>`;
+        cells+=`<div style="flex:1 1 ${cellW}px;min-width:${cellW}px;box-sizing:border-box;height:${rowH}px;border-right:1px solid rgba(255,255,255,.04);${i===todayI0?'background:rgba(59,130,246,.10);':we?'background:rgba(255,255,255,.02);':''}display:flex;align-items:center;justify-content:center;padding:6px 3px">${on?`<div class="mono" style="width:100%;height:100%;background:${cc};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:rgba(11,14,19,.85);opacity:${tDone?'.45':'1'}${tActive?';box-shadow:0 0 0 1.5px rgba(147,197,253,.95) inset':''}">${letter}</div>`:''}</div>`; }
+      const nameCell=canEdit?`<input value="${esc(t.name)}" onchange="schedSetField('${t.id}','name',this.value)" style="flex:1;min-width:0;background:transparent;border:0;outline:0;color:#E6E9EF;font-size:11.5px">`:`<span style="font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${tDone?'color:#6B7280':''}">${esc(t.name)}</span>`;
       const daysCell=canEdit?`<input type="number" min="1" value="${days}" onchange="schedSetField('${t.id}','days',this.value)" style="width:34px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:5px;color:#E6E9EF;font-size:10.5px;text-align:center;padding:1px">`:`<span class="mono" style="font-size:11px;color:#9AA3B0">${days}</span>`;
       const crewCell=canEdit?schedCrewControl(t,src,cos):`<div style="display:flex;align-items:center;gap:6px;min-width:0"><span class="mono" style="width:18px;height:18px;border-radius:50%;background:${cc};display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;color:#0B0E13;flex-shrink:0">${letter}</span><span style="font-size:11px;color:#9AA3B0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.company||'')}</span></div>`;
       secHTML+=`<div data-search="${hay}" data-sec="${sid}" style="display:flex"><div style="width:${LEFTW}px;flex-shrink:0;position:sticky;left:0;z-index:5;background:#0C1017;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.04);display:grid;grid-template-columns:${lcols};align-items:center;gap:6px;height:${rowH}px;overflow:hidden;box-shadow:6px 0 8px -5px rgba(0,0,0,.6)">
-        <div style="display:flex;align-items:center;gap:8px;padding-left:14px;min-width:0"><span style="width:11px;height:11px;border-radius:50%;background:${cc};opacity:.85;flex-shrink:0"></span>${nameCell}</div>
+        <div style="display:flex;align-items:center;gap:8px;padding-left:14px;min-width:0">${tDone?`<span class="ms" style="font-size:16px;color:#22C55E;flex-shrink:0" title="Done">check_circle</span>`:tActive?`<span style="width:11px;height:11px;border-radius:50%;background:#3B82F6;box-shadow:0 0 8px #3B82F6;flex-shrink:0;animation:oyLive 1.6s ease-in-out infinite" title="In progress"></span>`:`<span style="width:11px;height:11px;border-radius:50%;background:transparent;border:2px solid ${hexA(cc,.7)};flex-shrink:0" title="Upcoming"></span>`}${nameCell}</div>
         <div style="text-align:center">${daysCell}</div>
         <div style="min-width:0">${crewCell}</div>
         ${canEdit?`<span class="ms" onclick="schedDelTask('${t.id}')" title="Delete" style="font-size:15px;color:#6B7280;cursor:pointer">delete</span>`:''}</div>
@@ -1771,7 +1773,12 @@ function ganttHTML(p){
     });
   });
   return `<div style="flex:1;display:flex;flex-direction:column;min-height:0;padding:0 20px 18px">
-    <div onwheel="ganttWheel(event)" style="flex:1;overflow:auto;border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(10,13,18,.6);min-height:0">
+    <div style="display:flex;gap:14px;align-items:center;padding:2px 2px 9px;font-size:10.5px;color:#8A92A0">
+      <span style="display:flex;align-items:center;gap:5px"><span class="ms" style="font-size:14px;color:#22C55E">check_circle</span>Done</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:50%;background:#3B82F6;box-shadow:0 0 6px #3B82F6"></span>In progress</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:50%;border:2px solid rgba(255,255,255,.35)"></span>Upcoming</span>
+      <span style="flex:1"></span><button class="ghostbtn" style="padding:3px 10px;font-size:10.5px" onclick="schedSnapToday()"><span class="ms" style="font-size:14px;color:#3B82F6">today</span>Jump to today</button></div>
+    <div id="ganttScroll" data-todayx="${Math.max(0,(todayI0-1)*cellW)}" onwheel="ganttWheel(event)" style="flex:1;overflow:auto;border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(10,13,18,.6);min-height:0">
       <div style="min-width:${LEFTW+timelineW}px;position:relative">
         <div style="display:flex;position:sticky;top:0;z-index:6;background:#0C1017">
           <div style="width:${LEFTW}px;flex-shrink:0;position:sticky;left:0;z-index:7;background:#0C1017;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08);display:grid;grid-template-columns:${lcols};gap:6px;align-items:end;overflow:hidden;box-shadow:6px 0 8px -5px rgba(0,0,0,.6)"><div class="mono" style="font-size:9.5px;color:#5B636F;padding:0 14px 8px">TASK</div><div class="mono" style="font-size:9.5px;color:#5B636F;text-align:center;padding:0 0 8px">DAYS</div><div class="mono" style="font-size:9.5px;color:#5B636F;padding:0 0 8px">CREW</div>${canEdit?'<div></div>':''}</div>

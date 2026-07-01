@@ -14,7 +14,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <style>
   *{box-sizing:border-box}
-  body{margin:0;background:#0B0E13;font-family:Inter,system-ui,sans-serif;color:#E6E9EF;-webkit-font-smoothing:antialiased;overflow:hidden}
+  html{overscroll-behavior:none}   /* stop trackpad two-finger horizontal swipe from triggering browser back/forward (blank "error" page) while panning the map */
+  body{margin:0;background:#0B0E13;font-family:Inter,system-ui,sans-serif;color:#E6E9EF;-webkit-font-smoothing:antialiased;overflow:hidden;overscroll-behavior:none}
   .ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;display:inline-block;vertical-align:middle;font-variation-settings:'opsz' 24;-webkit-font-feature-settings:'liga';user-select:none}
   .mono{font-family:'JetBrains Mono',monospace}
   a{color:inherit;text-decoration:none}
@@ -137,7 +138,7 @@ const ROLES=[
   {key:'pm',name:'PM',short:'RFIs · Submittals · Cost',desc:'RFIs, submittals, inspections, cost',icon:'account_tree',accent:'#3B82F6',gate:'PIN entry',gateIcon:'pin'},
   {key:'pe',name:'PE',short:'Data · Zones · Pours',desc:'Data input, map zones, tools, pours',icon:'architecture',accent:'#8B5CF6',gate:'PIN entry',gateIcon:'pin'},
 ];
-const LOCKS={admin:[],super:['rfis','submittals'],pm:['attendance'],pe:['submittals']};
+const LOCKS={admin:[],super:['submittals'],pm:['attendance'],pe:['submittals']};   // Super now sees the RFIs tab (still no submittals)
 const NAV=[
   {key:'dashboard',label:'Dashboard',icon:'space_dashboard'},
   {key:'map',label:'The Map',icon:'map',badge:'LIVE'},
@@ -154,7 +155,7 @@ let ME={uid:null,email:null,name:null,role:null};
 function realRoleKey(){ return (ME.role||'').toLowerCase()||'pe'; }
 function activeRole(){ return STATE.viewRole||realRoleKey(); }
 const CAP={
-  rfiEdit:['admin','pm','pe'], zoneEdit:['admin','pe'], mapCalib:['admin','pe'], markupEdit:['admin','pm','pe'],
+  rfiEdit:['admin','super','pm','pe'], zoneEdit:['admin','pe'], mapCalib:['admin','pe'], markupEdit:['admin','pm','pe'],
   scheduleEdit:['admin','super'], inspect:['admin','pm','pe'], pourEdit:['admin','super','pm','pe'], adminUsers:['admin'],
 };
 // Global edit lock — default LOCKED (view-only) until unlocked with the PIN (shortcut L).
@@ -639,7 +640,7 @@ const INSP_STAGES=['','READY','PASS','FAIL'], INSP_LABEL={'':'Not started',READY
 const M={ layers:{footings:true,embeds:true,pours:true,rfi:true,markups:true,grid:true},
   view:{tx:0,ty:0,s:1,base:1,init:false}, box:{w:1000,h:700},
   footings:[], byNo:{}, base:null, ox:0, oy:0, planW:0, planH:0, gridCols:[], gridRows:[], emb:null, calib:{dx:0,dy:0,sx:1,sy:1},
-  sel:null, hovFoot:null, hovPour:null, selPour:null, tool:'pan', scrollMode:'pan', dockOpen:true, colorMode:'status', seqFilter:'ALL', calibMode:false, snapEmbeds:true, userView:false, drag:null, regionDraw:null };
+  sel:null, hovFoot:null, hovPour:null, selPour:null, tool:'pan', scrollMode:'pan', dockOpen:true, colorMode:'status', seqFilter:'ALL', calibMode:false, snapEmbeds:true, userView:false, drag:null, regionDraw:null, rfiLabel:'number' };   // rfiLabel: number | name | off — what to print inside each RFI zone
 
 function sideFt(t){ t=String(t).toUpperCase(); const F={F6:5,F6A:5,F7:5.5,F7A:6,F8:6.5,F8A:7,F9:7.5,F10:8,F10A:8.5,F11:9,F12:9.5,F12B:10,F12C:10,F14:11,F201:6,F202:6};
   if(F[t]!=null)return F[t]; if(t.indexOf('MPC')===0){const n=parseInt(t.replace(/\D/g,''))||6;return n>=18?26:(n>=8?22:(n>=6?20:18));}
@@ -742,7 +743,7 @@ function renderMap(b){
     <div style="flex:1;display:flex;min-height:0;position:relative">
       <div id="canvaswrap" style="flex:1;position:relative;overflow:hidden;background:#090C11">
         <div style="position:absolute;inset:0;background:radial-gradient(ellipse 58% 56% at 50% 46%,rgba(74,100,140,.22),rgba(44,60,86,.07) 46%,transparent 72%);pointer-events:none"></div>
-        <canvas id="mapcanvas" style="position:absolute;inset:0;cursor:grab;touch-action:none"></canvas>
+        <canvas id="mapcanvas" style="position:absolute;inset:0;cursor:grab;touch-action:none;overscroll-behavior:none"></canvas>
         <div style="position:absolute;top:30px;right:18px;display:flex;flex-direction:column;align-items:center;gap:2px;color:#5B636F;pointer-events:none"><span class="ms" style="font-size:18px">navigation</span><span class="mono" style="font-size:9px">N</span></div>
         <div id="maptools" style="position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:6px">
           <button id="panModeBtn" class="ghostbtn" style="width:36px;height:34px;justify-content:center;padding:0;${M.scrollMode==='pan'?'background:rgba(139,92,246,.22);color:#fff':''}" title="Pan tool (V) — scroll to pan" onclick="setScrollMode('pan')"><span class="ms" style="font-size:18px">pan_tool</span></button>
@@ -776,6 +777,10 @@ function renderLayerPanel(){ const host=document.getElementById('layerpanel'); i
     <span style="width:10px;height:10px;border-radius:3px;background:${c};box-shadow:0 0 8px ${hexA(c,.6)}"></span>
     <span style="flex:1;font-size:12px;font-weight:${on?600:400};color:${on?'#E6E9EF':'#6B7280'}">${l}</span>
     <span class="mono" style="font-size:10px;color:#7A8290">${n}</span><span class="ms" style="font-size:16px;color:${on?'#C7CDD6':'#5B636F'}">${on?'visibility':'visibility_off'}</span></div>`;}).join('')
+  +(M.layers.rfi?`<div onclick="cycleRfiLabel()" title="What to print inside each RFI zone on the map — cycle #, name, or hidden" style="display:flex;align-items:center;gap:10px;padding:6px;margin-top:6px;border-radius:9px;cursor:pointer">
+    <span class="ms" style="font-size:16px;color:${M.rfiLabel==='off'?'#5B636F':RFI_CYAN}">${M.rfiLabel==='off'?'label_off':'label'}</span>
+    <span style="flex:1;font-size:12px;color:#E6E9EF">RFI labels</span>
+    <span class="mono" style="font-size:10px;font-weight:600;color:${M.rfiLabel==='off'?'#6B7280':RFI_CYAN}">${M.rfiLabel==='name'?'NAME':M.rfiLabel==='off'?'OFF':'#'}</span></div>`:'')
   +`<div onclick="toggleSnap()" title="Snap each embed onto its nearest footing (map only — EmbedYap unchanged)" style="display:flex;align-items:center;gap:10px;padding:6px;margin-top:6px;border-top:1px solid rgba(255,255,255,.06);padding-top:10px;border-radius:9px;cursor:pointer">
     <span class="ms" style="font-size:16px;color:${M.snapEmbeds?'#3B82F6':'#5B636F'}">${M.snapEmbeds?'my_location':'location_searching'}</span>
     <span style="flex:1;font-size:12px;font-weight:${M.snapEmbeds?600:400};color:${M.snapEmbeds?'#E6E9EF':'#6B7280'}">Snap embeds to footings</span>
@@ -825,7 +830,7 @@ function renderRfiTray(){ const host=document.getElementById('rfitray'); if(!hos
 // An RFI counts as "on the map" only if it actually shows something — a drawn region OR a footing scope.
 // Records with neither (e.g. an old drag that was never drawn) are NOT placed, so they stay available in the tray.
 // An RFI can mark SEVERAL separate locations — new `regions` array of polygons + legacy single `region`. rfiRegions merges both.
-function rfiRegions(r){ const out=[]; if(r&&Array.isArray(r.regions))for(const g of r.regions){ if(Array.isArray(g)&&g.length>=3)out.push(g); } if(r&&rfiRegions(r).length>=3)out.push(r.region); return out; }
+function rfiRegions(r){ const out=[]; if(r&&Array.isArray(r.regions))for(const g of r.regions){ if(Array.isArray(g)&&g.length>=3)out.push(g); } if(r&&Array.isArray(r.region)&&r.region.length>=3)out.push(r.region); return out; }   // legacy single `region` + new `regions[]` — DO NOT call rfiRegions() here (infinite recursion → all map clicks/hitTest die)
 function rfiPlaced(r){ return !!r && (rfiRegions(r).length>0 || (r.appliesTo&&(r.appliesTo.all||(Array.isArray(r.appliesTo.families)&&r.appliesTo.families.length)||(Array.isArray(r.appliesTo.codes)&&r.appliesTo.codes.length)))); }
 function rfiAvail(){ const placed=new Set(Object.values(DATA.rfi).filter(rfiPlaced).map(r=>r.number)); return RFI_DRIVE.filter(r=>!placed.has(r.number)); }
 let _rfiTrayQ='';
@@ -917,6 +922,8 @@ window.focusRfi=focusRfi;
 function setColorMode(m){ M.colorMode=m; renderBody(); }
 function setSeq(s){ M.seqFilter=s; M.selPour=null; renderBody(); }
 function toggleLayer(k){ M.layers[k]=!M.layers[k]; renderLayerPanel(); repaint(); if(ME.uid)ccUpdate('prefs/'+ME.uid,{layers:M.layers}).catch(()=>{}); }
+function cycleRfiLabel(){ const o=['number','name','off']; M.rfiLabel=o[(o.indexOf(M.rfiLabel||'number')+1)%o.length]; renderLayerPanel(); repaint(); }   // map label inside RFI zones: #, name, or hidden
+window.cycleRfiLabel=cycleRfiLabel;
 function hovPour(id){ M.hovPour=id; repaint(); }
 function isoPour(id){ M.selPour=M.selPour===id?null:id; renderDock(); repaint(); }
 function zoomBtn(f){ zoomAt(M.box.w/2,M.box.h/2,f); }
@@ -1051,15 +1058,16 @@ function drawMarkups(ctx){ for(const [id,m] of Object.entries(DATA.markups)){ if
 // no shadows. Per-RFI try/catch so one bad record can't blank the canvas. Toggles with M.layers.rfi.
 function drawRFIs(ctx){ for(const [id,r] of Object.entries(DATA.rfi)){ try{
     const regs=rfiRegions(r); if(!regs.length)continue;
-    const sel=M.sel&&M.sel.kind==='rfi'&&M.sel.id===id; const lbl=r.number||'RFI';
+    const sel=M.sel&&M.sel.kind==='rfi'&&M.sel.id===id; const mode=M.rfiLabel||'number';
+    let lbl=mode==='name'?(r.title||r.number||'RFI'):(r.number||'RFI'); if(lbl.length>28)lbl=lbl.slice(0,27)+'…';   // # (default) / name / off — names truncate so small zones don't overflow
     for(const reg of regs){ const pts=reg.map(p=>S(p[0]*M.planW,p[1]*M.planH));
       ctx.beginPath();pts.forEach((s,i)=>i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y));ctx.closePath();
       ctx.fillStyle=hexA(RFI_CYAN,sel?0.22:0.13);ctx.fill();
       ctx.strokeStyle=RFI_CYAN;ctx.lineWidth=sel?2.2:1.5;ctx.stroke();
-      let cx=0,cy=0;pts.forEach(s=>{cx+=s.x;cy+=s.y;});cx/=pts.length;cy/=pts.length;
-      ctx.font="600 10px Inter,system-ui,sans-serif"; const w=ctx.measureText(lbl).width;
-      ctx.fillStyle='rgba(6,20,26,.9)';ctx.fillRect(cx-w/2-6,cy-8,w+12,16);
-      ctx.fillStyle=RFI_CYAN;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(lbl,cx,cy);ctx.textAlign='left';ctx.textBaseline='alphabetic'; }
+      if(mode!=='off'){ let cx=0,cy=0;pts.forEach(s=>{cx+=s.x;cy+=s.y;});cx/=pts.length;cy/=pts.length;
+        ctx.font="600 10px Inter,system-ui,sans-serif"; const w=ctx.measureText(lbl).width;
+        ctx.fillStyle='rgba(6,20,26,.9)';ctx.fillRect(cx-w/2-6,cy-8,w+12,16);
+        ctx.fillStyle=RFI_CYAN;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(lbl,cx,cy);ctx.textAlign='left';ctx.textBaseline='alphabetic'; } }
   }catch(_){} } }
 // Live draw preview — flat & simple: a plain cyan rectangle (box) or polyline (polygon). No glow/handles.
 function drawRegionDraft(ctx){ const rd=M.regionDraw; if(!rd)return;
@@ -1100,7 +1108,7 @@ function wireMap(){ const el=_cv; const _tp=new Map();   // active touch pointer
     if(e.pointerType==='touch'){ _tp.set(e.pointerId,{x:e.clientX,y:e.clientY});
       if(_tp.size===2){ M.drag=null; const a=[..._tp.values()]; M._pinch={d:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),mx:(a[0].x+a[1].x)/2,my:(a[0].y+a[1].y)/2}; return; }   // second finger → start pinch
       if(_tp.size>2)return; }
-    _cvRect=null;const r=cvRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+    _cvRect=null;const r=cvRect(),kx=r.width?M.box.w/r.width:1,ky=r.height?M.box.h/r.height:1,x=(e.clientX-r.left)*kx,y=(e.clientY-r.top)*ky;   // map the click from the canvas's on-screen rect into M.box/draw space, so clicks stay accurate even if the canvas display size ≠ M.box
     if(M.regionDraw){const f=toFrac(x,y);el.setPointerCapture(e.pointerId);M.regionDraw.down={fx:f.fx,fy:f.fy,x,y};return;}   // each click/tap drops one polygon point
     if(M.tool==='note'){const f=toFrac(x,y);addMarkup(f.fx,f.fy);toggleNote();return;}
     const hit=hitTest(x,y); if(hit){M.sel=hit;repaint();openDetail(hit);return;}
@@ -1112,7 +1120,7 @@ function wireMap(){ const el=_cv; const _tp=new Map();   // active touch pointer
       M.view.tx+=(nmx-M._pinch.mx); M.view.ty+=(nmy-M._pinch.my);   // two-finger pan
       if(M._pinch.d>0)zoomAt(nmx-rc.left,nmy-rc.top,nd/M._pinch.d); else repaint();   // pinch zoom about the gesture midpoint (zoomAt repaints)
       M._pinch={d:nd,mx:nmx,my:nmy}; } return; }
-    if(M.regionDraw)_cvRect=null;const r=cvRect(),x=e.clientX-r.left,y=e.clientY-r.top;   // fresh rect while drawing so the box tracks the cursor even if the layout shifts/scrolls
+    _cvRect=null;const r=cvRect(),kx=r.width?M.box.w/r.width:1,ky=r.height?M.box.h/r.height:1,x=(e.clientX-r.left)*kx,y=(e.clientY-r.top)*ky;   // fresh rect + map into M.box/draw space so hover/clicks stay accurate (fixes cursor "ghosting"/offset)
     if(M.regionDraw){const f=toFrac(x,y);M.regionDraw.cur=[f.fx,f.fy];repaint();return;}   // rubber-band from last point to cursor
     if(M.drag){M.userView=true;M.view.tx=M.drag.tx+(x-M.drag.x);M.view.ty=M.drag.ty+(y-M.drag.y);M.drag.moved=true;repaint();return;}
     _hovXY={x,y}; if(_hovPend)return; _hovPend=true;
@@ -1191,7 +1199,7 @@ function openDetail(hit){
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;flex-wrap:wrap"><span class="pill" style="color:${c};background:${hexA(c,.14)}">${esc(r.status)}</span><span style="font-size:10.5px;color:#9AA3B0;display:inline-flex;align-items:center;gap:4px"><span class="ms" style="font-size:13px;color:${RFI_CYAN}">filter_alt</span>${esc(scopeSummary(r.appliesTo)||'No footings tagged')}</span>${rfiRegions(r).length?`<span style="font-size:9.5px;color:${RFI_CYAN};border:1px solid ${hexA(RFI_CYAN,.4)};padding:1px 6px;border-radius:5px">drawn region</span>`:''}</div>
       ${r.cover?`<img src="${esc(r.cover)}" style="width:100%;border-radius:9px;margin-bottom:12px">`:''}
       <div style="display:flex;gap:8px;margin-bottom:8px"><a class="btn primary grad" style="flex:1" href="${esc(r.viewUrl||'#')}" target="_blank">More info ↗</a>${can('rfiEdit')?`<button class="btn" onclick="editRfiScope('${hit.id}')" title="Status & assigned footings"><span class="ms" style="font-size:15px">tune</span></button>`:''}</div>
-      ${can('rfiEdit')?`<div style="display:flex;gap:8px"><button class="btn" style="flex:1" onclick="startRegionDraw('${hit.id}')"><span class="ms" style="font-size:15px;color:${RFI_CYAN}">add_location_alt</span>Add location</button>${rfiRegions(r).length?`<button class="btn" onclick="clearRfiRegion('${hit.id}')" title="Remove all drawn locations"><span class="ms" style="font-size:15px">ink_eraser</span>Clear</button>`:''}<button class="btn" onclick="removeRfiFromMap('${hit.id}')" title="Remove this RFI from the map (keeps it in the RFI list)"><span class="ms" style="font-size:15px">layers_clear</span>Off map</button></div>`:''}`;
+      ${can('rfiEdit')?`<button class="btn" style="width:100%;margin-bottom:8px" onclick="startRegionDraw('${hit.id}')"><span class="ms" style="font-size:15px;color:${RFI_CYAN}">add_location_alt</span>Add location</button><div style="display:flex;gap:8px">${rfiRegions(r).length?`<button class="btn" style="flex:1" onclick="clearRfiRegion('${hit.id}')" title="Remove all drawn locations"><span class="ms" style="font-size:15px">ink_eraser</span>Clear</button>`:''}<button class="btn" style="flex:1" onclick="removeRfiFromMap('${hit.id}')" title="Remove this RFI from the map (keeps it in the RFI list)"><span class="ms" style="font-size:15px">layers_clear</span>Off map</button></div>`:''}`;
   } else if(hit.kind==='markup'){ const mk=hit.data;
     body=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="font-size:13px;font-weight:700">Note</div><div onclick="closeDetail()" style="cursor:pointer"><span class="ms" style="font-size:17px;color:#7A8290">close</span></div></div>
       <div style="font-size:12.5px;color:#C7CDD6;white-space:pre-wrap">${esc(mk.text||'')}</div><div style="font-size:10.5px;color:#7A8290;margin-top:8px">${esc(mk.by||'')} · ${fmtDate(mk.at)}</div>

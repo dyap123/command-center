@@ -1,5 +1,14 @@
 # DEVLOG — OpenYap Command Center
 
+## 2026-06-30 — Map interaction fixes (laptop/trackpad) + RFI polish
+Reported: on a 16" MacBook + trackpad, map clicks landed in the wrong place, panning didn't work, and after the prior commit the map was fully unclickable.
+- **Root cause of "can't click anything":** `rfiRegions()` had an accidental self-call (`rfiRegions(r).length>=3`) → infinite recursion → `RangeError`. It threw inside `hitTest` (outside the try/catch) which runs in `pointerdown` *before* the drag setup, so it killed both selection **and** drag-to-pan. Latent until the prior commit added `startCCSync()` to preview (which finally populated `DATA.rfi`). Fixed to check the legacy single `region` array.
+- **Cursor "ghosting" / clicks off-target:** `pointermove` only refreshed the cached canvas rect during region-draw, and click coords weren't mapped into the draw space. Now every pointer read takes a fresh `getBoundingClientRect()` and scales `(clientX-left)` by `M.box.w/rect.width` (and Y) so clicks/hover stay accurate even if the canvas display size ≠ its draw buffer. (Rejected the tempting `/devicePixelRatio` "fix" — the buffer already uses the correct hi-DPI pattern; dividing would *break* Retina.)
+- **Trackpad two-finger swipe pan** could trigger browser back/forward (blank page). Added `overscroll-behavior:none` on `html`/`body`/canvas.
+- **Super role now manages RFIs:** added `super` to `CAP.rfiEdit` and removed `rfis` from `LOCKS.super` — Super sees the RFIs tab and gets add/remove (edit still requires unlocking with PIN `050103`).
+- **RFI detail:** "Off map" button no longer clips — "Add location" is full-width, "Clear"/"Off map" sit on a 50/50 row.
+- **RFI label toggle** (layers panel, shown when RFI layer is on): cycle **# / NAME / OFF** for the label printed inside each zone; names truncate at 28 chars so small zones don't overflow. State in `M.rfiLabel`.
+
 ## 2026-06-27 — Takeoff parity, live SuperYap, Tools PM dashboard, edit-lock
 - **Takeoff now matches CUP**: TOTAL CY = Σ footing `cyv` (CUP's `getTakeoff`), not sparse pour-zone CY; FOOTINGS = live footing count.
 - **Schedule: pull live from SuperYap OR import Excel** — source toggle (SuperYap ● / Imported). Ported SuperYap's working-day chain engine (`laCompute`) so chained dates resolve; crew bars use each company's real color; reads `look-ahead-schedule/{projects,meta,companies,holidays}` live.

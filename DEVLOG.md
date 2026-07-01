@@ -1,5 +1,12 @@
 # DEVLOG — OpenYap Command Center
 
+## 2026-07-01 — Map search, dashboard charts, live pour inspections
+- **Map search** moved into the header (next to Sync); typing **live-filters** the map — matches stay bright, unrelated footings/embeds/pours/RFI zones dim to ~8% (`srchA`), grid kept for context. Enter/click flies to a result + selects + locate-flash.
+- **Hidden archived pours**: `refreshPours` now skips CUP `archived`/`deleted` pours, so archived ones (e.g. `Zykqcftq`, `Zmk5jvs1`) stop resurrecting from stale embed-tracker zone copies.
+- **Dashboard charts** (inline SVG, no deps, gradients + glow + draw-in): **Pour pipeline** cumulative area, **Pour status** donut, **Project completion** rings (pours complete / embeds set / footings assigned / inspections signed off), **Progress by sequence**, **Footings by type**, **Inspections signed off**, **Embeds by state**, **RFIs by status**. Dropped the bogus CY-based "concrete placed" (CY isn't entered — `cy:3` placeholders); metrics are count/checklist-based now. KPI row: added **Inspections done — N of M · K pours fully signed off**.
+- **Pour inspections = full parity with CUP**: inspections are the per-pour embedded array at `cup-foundation/pours/<id>/checklist = [{text,done}]`, merged with the standard template `PREPOUR_DEFAULTS` via `pourChecklistItems()` (mirrors CUP). Every pour card shows the checklist (X/total, progress bar, click-to-toggle chips + "All ✓"); writes back to the same Firebase node (+`updatedAt`) so it stays in sync both ways. (`normPour` now preserves `checklist`; the top-level `A-1` `checklist` node is a separate, unused pour system.)
+- **Show/hide toggle** for the inspection blocks on pour cards (`STATE.hideInsp`, header button next to "Hide complete").
+
 ## 2026-06-30 — Map interaction fixes (laptop/trackpad) + RFI polish
 Reported: on a 16" MacBook + trackpad, map clicks landed in the wrong place, panning didn't work, and after the prior commit the map was fully unclickable.
 - **Root cause of "can't click anything":** `rfiRegions()` had an accidental self-call (`rfiRegions(r).length>=3`) → infinite recursion → `RangeError`. It threw inside `hitTest` (outside the try/catch) which runs in `pointerdown` *before* the drag setup, so it killed both selection **and** drag-to-pan. Latent until the prior commit added `startCCSync()` to preview (which finally populated `DATA.rfi`). Fixed to check the legacy single `region` array.

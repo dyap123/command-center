@@ -37,6 +37,7 @@
   @keyframes oyZoomBlur{to{opacity:0;transform:scale(1.12);filter:blur(9px)}}
   @keyframes oyZoomIn{from{opacity:0;transform:scale(.985)}to{opacity:1;transform:scale(1)}}
   @keyframes oyFlash{0%{opacity:0;transform:scale(.55)}45%{opacity:.85}100%{opacity:0;transform:scale(1.7)}}
+  @keyframes oyGrowW{from{width:0}}   /* dashboard bar-chart grow-in */
   #dotgrid{position:fixed;inset:0;background-image:radial-gradient(rgba(255,255,255,.028) 1px,transparent 1px);background-size:26px 26px;pointer-events:none;opacity:.6;z-index:0}
   .aurora{position:absolute;border-radius:50%;filter:blur(34px);pointer-events:none;will-change:transform;transform:translateZ(0);opacity:.5}
   .loginFx{position:fixed;inset:0;z-index:60;pointer-events:none;background:radial-gradient(circle at 50% 46%,rgba(139,92,246,.5),rgba(59,130,246,.22) 32%,transparent 62%);animation:oyFlash .6s ease forwards}
@@ -295,7 +296,7 @@ function refreshPours(){ const out={}, cup=DATA.cupPours||{};
   _poursCache=out; if(onMap()){renderDock();renderLayerPanel();repaint();} cupReact(); softUpdate(); }
 function normPour(id,z){ let pts=null;
   if(Array.isArray(z.points)&&z.points.length>=3)pts=z.points; else if(typeof z.x==='number'&&typeof z.w==='number')pts=[[z.x,z.y],[z.x+z.w,z.y],[z.x+z.w,z.y+z.h],[z.x,z.y+z.h]];
-  return { id, name:z.name||('Pour '+id), status:z.status||'PENDING', area:z.area||'', sequence:(z.sequence!=null?z.sequence:z.pour)||'', cy:z.cy||0, mix:z.mix||null, date:z.pour_date||z.date||'', time:z.time||'', pts }; }
+  return { id, name:z.name||('Pour '+id), status:z.status||'PENDING', area:z.area||'', sequence:(z.sequence!=null?z.sequence:z.pour)||'', cy:z.cy||0, mix:z.mix||null, date:z.pour_date||z.date||'', time:z.time||'', pts, checklist:Array.isArray(z.checklist)?z.checklist:[] }; }   // each pour carries its own inspection checklist [{done,text}] (source of truth in CUP)
 const onMap=()=>STATE.screen==='app'&&STATE.activeTab==='map';
 function softUpdate(){ if(STATE.activeTab==='dashboard'&&STATE.screen==='app') renderBody(); }
 
@@ -511,6 +512,76 @@ window.exportXLSX=exportXLSX;
 /* ============================================================================
    DASHBOARD
    ============================================================================ */
+/* ===== Dashboard charts — inline SVG, no deps, themed (gradients + glow + draw-in) ===== */
+let _cid=0; const cid=()=>'cc'+(++_cid);
+function ccRing(pct,color,label){ pct=Math.max(0,Math.min(100,Math.round(pct||0))); const s=120,th=10,r=(s-th)/2,c=s/2,C=+(2*Math.PI*r).toFixed(1),len=+(pct/100*C).toFixed(1),id=cid();
+  return `<div style="display:flex;flex-direction:column;align-items:center;gap:7px;min-width:104px">
+    <svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
+      <defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${hexA(color,.4)}"/><stop offset="1" stop-color="${color}"/></linearGradient></defs>
+      <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="${th}"/>
+      <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="url(#${id})" stroke-width="${th}" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${(C-len).toFixed(1)}" transform="rotate(-90 ${c} ${c})" style="filter:drop-shadow(0 0 5px ${hexA(color,.7)})">
+        <animate attributeName="stroke-dashoffset" values="${C};${(C-len).toFixed(1)}" dur="0.9s" calcMode="spline" keyTimes="0;1" keySplines="0.3 0 0.15 1" fill="freeze"/></circle>
+      <text x="${c}" y="${c+2}" text-anchor="middle" fill="#E6E9EF" font-size="24" font-weight="750" font-family="'JetBrains Mono',monospace">${pct}<tspan font-size="12" fill="#8A92A0">%</tspan></text>
+    </svg><div style="font-size:11px;color:#9AA3B0;font-weight:600;text-align:center">${esc(label)}</div></div>`; }
+function ccDonut(segs,big,sub){ segs=segs.filter(s=>s.v>0); const s=140,th=16,r=(s-th)/2,c=s/2,C=2*Math.PI*r,total=segs.reduce((a,x)=>a+x.v,0)||1; let off=0,arcs='';
+  segs.forEach(g=>{ const len=g.v/total*C; arcs+=`<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${g.c}" stroke-width="${th}" stroke-dasharray="${len.toFixed(1)} ${(C-len).toFixed(1)}" stroke-dashoffset="${(-off).toFixed(1)}" transform="rotate(-90 ${c} ${c})" style="filter:drop-shadow(0 0 4px ${hexA(g.c,.5)})"/>`; off+=len; });
+  return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" style="animation:oyFade .5s ease"><circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="${th}"/>${arcs}<text x="${c}" y="${c-1}" text-anchor="middle" fill="#E6E9EF" font-size="25" font-weight="750" font-family="'JetBrains Mono',monospace">${big}</text><text x="${c}" y="${c+15}" text-anchor="middle" fill="#8A92A0" font-size="9.5">${esc(sub||'')}</text></svg>`; }
+function ccBars(rows){ const gmax=Math.max(1,...rows.map(x=>x.v)); return `<div style="display:flex;flex-direction:column;gap:11px">`+rows.map(r=>{ const den=r.max!=null?r.max:gmax; const pct=Math.max(2,Math.min(100,(r.v/(den||1))*100));
+  return `<div><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:#C7CDD6;font-weight:600">${esc(r.label)}</span><span class="mono" style="color:#8A92A0">${esc(r.sub!=null?r.sub:String(r.v))}</span></div><div style="height:8px;border-radius:5px;background:rgba(255,255,255,.06);overflow:hidden"><div style="height:100%;width:${pct.toFixed(1)}%;border-radius:5px;background:linear-gradient(90deg,${hexA(r.c,.5)},${r.c});box-shadow:0 0 8px ${hexA(r.c,.5)};animation:oyGrowW .8s cubic-bezier(.4,0,.2,1)"></div></div></div>`;}).join('')+`</div>`; }
+function ccArea(pts,color,target){ const W=560,H=180,pl=6,pr=6,pt=16,pb=22,iw=W-pl-pr,ih=H-pt-pb,id=cid();
+  if(!pts||pts.length<2) return `<div style="height:${H}px;display:flex;align-items:center;justify-content:center;color:#5B636F;font-size:12px;text-align:center">Cumulative curve appears once ≥2 pours are complete.</div>`;
+  const maxV=Math.max(1,target||0,...pts.map(p=>p.v)),n=pts.length,X=i=>pl+(i/(n-1))*iw,Y=v=>pt+ih-(v/maxV)*ih;
+  const line=pts.map((p,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`).join('');
+  const area=`M${X(0).toFixed(1)},${(pt+ih).toFixed(1)}`+pts.map((p,i)=>`L${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`).join('')+`L${X(n-1).toFixed(1)},${(pt+ih).toFixed(1)}Z`;
+  const gl=[0,.5,1].map(f=>`<line x1="${pl}" y1="${(pt+ih-f*ih).toFixed(1)}" x2="${W-pr}" y2="${(pt+ih-f*ih).toFixed(1)}" stroke="rgba(255,255,255,.05)"/>`).join('');
+  const tl=target?`<line x1="${pl}" y1="${Y(target).toFixed(1)}" x2="${W-pr}" y2="${Y(target).toFixed(1)}" stroke="${hexA('#8A92A0',.5)}" stroke-dasharray="5 5"/><text x="${W-pr}" y="${(Y(target)-4).toFixed(1)}" text-anchor="end" fill="#8A92A0" font-size="9">target ${Math.round(target).toLocaleString()} CY</text>`:'';
+  const dots=pts.map((p,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="2.4" fill="${color}"/>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;animation:oyFade .5s ease"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${hexA(color,.4)}"/><stop offset="1" stop-color="${hexA(color,0)}"/></linearGradient></defs>${gl}${tl}<path d="${area}" fill="url(#${id})"/><path d="${line}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linejoin="round" style="filter:drop-shadow(0 0 5px ${hexA(color,.6)})"/>${dots}<text x="${pl}" y="${H-5}" fill="#6B7280" font-size="9">${esc(pts[0].label)}</text><text x="${W-pr}" y="${H-5}" text-anchor="end" fill="#6B7280" font-size="9">${esc(pts[n-1].label)}</text></svg>`; }
+function ccCard(title,icon,color,body,right){ return `<div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:16px 18px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:8px"><div style="font-size:13px;font-weight:650;display:flex;align-items:center;gap:8px"><span style="width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:${hexA(color,.14)}"><span class="ms" style="font-size:15px;color:${color}">${icon}</span></span>${esc(title)}</div>${right||''}</div>${body}</div>`; }
+function ccLegend(items){ return `<div style="display:flex;flex-wrap:wrap;gap:9px 14px;margin-top:12px;justify-content:center">`+items.filter(i=>i.v>0||i.always).map(i=>`<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#9AA3B0"><span style="width:9px;height:9px;border-radius:3px;background:${i.c};box-shadow:0 0 6px ${hexA(i.c,.6)}"></span>${esc(i.label)} <b style="color:#E6E9EF">${i.v}</b></div>`).join('')+`</div>`; }
+function emptyMsg(t){ return `<div style="padding:16px 4px;color:#5B636F;font-size:12px;text-align:center">${esc(t)}</div>`; }
+function dashCharts(){
+  const n=v=>Number(v)||0, pours=Object.values(_poursCache), pins=Object.values(DATA.pins), foots=(M.footings||[]).filter(f=>!f.del&&!f.isBeam);
+  const pcomplete=pours.filter(p=>p.status==='COMPLETE').length,pord=pours.filter(p=>p.status==='ORDERED').length,ppend=pours.filter(p=>p.status==='PENDING').length;
+  const poursCompletePct=pours.length?Math.round(pcomplete/pours.length*100):0;
+  const embInst=pins.filter(p=>p.installed).length, embedPct=pins.length?Math.round(embInst/pins.length*100):0;
+  const assigned=foots.filter(f=>DATA.footingPours[f.no]).length, footPct=foots.length?Math.round(assigned/foots.length*100):0;
+  let ciTot=0,ciDone=0,ciFull=0,ciWith=0; pours.forEach(p=>{const a=pourChecklistItems(p); if(a.length){ciWith++;ciTot+=a.length;const d=a.filter(x=>x.done).length;ciDone+=d;if(d===a.length)ciFull++;}}); const inspPct=ciTot?Math.round(ciDone/ciTot*100):0;
+  const seq={}; pours.forEach(p=>{const k=(p.sequence!=null&&p.sequence!=='')?('Seq '+p.sequence):'Unassigned';(seq[k]=seq[k]||{tot:0,done:0});seq[k].tot++;if(p.status==='COMPLETE')seq[k].done++;});
+  const seqRows=Object.keys(seq).sort().map((k,i)=>({label:k,v:seq[k].done,max:seq[k].tot||1,c:SEQPAL[i%SEQPAL.length],sub:`${seq[k].done}/${seq[k].tot} pours`}));
+  const famName=t=>{t=String(t).toUpperCase();if(t.indexOf('MPC')===0)return'Micro-pile caps';if(t.indexOf('PC')===0)return'Pile caps';if(t.indexOf('GB')===0)return'Grade beams';if(t.indexOf('WF')===0)return'Wall footings';if(t[0]==='F')return'Footings';return'Other';};
+  const famC={'Micro-pile caps':'#F59E0B','Pile caps':'#8B5CF6','Footings':'#22C55E','Grade beams':'#566072','Wall footings':'#06B6D4','Other':'#64748B'};
+  const fam={}; foots.forEach(f=>{const k=famName(f.type);fam[k]=(fam[k]||0)+1;});
+  const famRows=Object.keys(fam).sort((a,b)=>fam[b]-fam[a]).map(k=>({label:k,v:fam[k],max:foots.length||1,c:famC[k]||'#64748B',sub:String(fam[k])}));
+  const rsl={}; [...RFI_DRIVE,...Object.values(DATA.rfi)].forEach(r=>{const st=r.status||'—';rsl[st]=(rsl[st]||0)+1;});
+  const rfiTot=Object.values(rsl).reduce((a,b)=>a+b,0)||1;
+  const rfiRows=Object.keys(rsl).sort((a,b)=>rsl[b]-rsl[a]).map(k=>({label:k,v:rsl[k],max:rfiTot,c:RFI_STAT_COL[k]||'#3B82F6',sub:String(rsl[k])}));
+  const eInst=pins.filter(p=>pinState(p)==='installed').length,eNext=pins.filter(p=>pinState(p)==='next').length,eTodo=pins.filter(p=>pinState(p)==='todo').length;
+  const dated=pours.filter(p=>p.date).sort((a,b)=>String(a.date).localeCompare(String(b.date))); let cum=0; const series=dated.map(p=>{cum++;return {label:fmtDate(p.date)||'',v:cum};});
+  return `<div style="display:flex;flex-direction:column;gap:16px;margin-bottom:18px">
+    <div style="display:grid;grid-template-columns:1.65fr 1fr;gap:16px;align-items:start">
+      ${ccCard('Pour pipeline — cumulative','trending_up','#8B5CF6',
+        `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span class="mono" style="font-size:26px;font-weight:750">${pours.length}</span><span style="font-size:12px;color:#8A92A0">pours · ${pcomplete} complete · ${pord} in progress · ${ppend} scheduled</span></div>`+ccArea(series,'#8B5CF6'))}
+      ${ccCard('Pour status','water_drop','#22C55E',
+        `<div style="display:flex;justify-content:center">${ccDonut([{v:pcomplete,c:'#22C55E'},{v:pord,c:'#F59E0B'},{v:ppend,c:'#3B82F6'}],String(pours.length),'pours')}</div>`
+        +ccLegend([{label:'Complete',v:pcomplete,c:'#22C55E'},{label:'In progress',v:pord,c:'#F59E0B'},{label:'Scheduled',v:ppend,c:'#3B82F6'}]))}
+    </div>
+    ${ccCard('Project completion','insights','#8B5CF6',
+      `<div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:space-around">${ccRing(poursCompletePct,'#22C55E','Pours complete')}${ccRing(embedPct,'#06B6D4','Embeds set')}${ccRing(footPct,'#A855F7','Footings assigned')}${ccRing(inspPct,'#3B82F6','Inspections signed off')}</div>`)}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px">
+      ${ccCard('Progress by sequence','stacked_bar_chart','#22C55E', seqRows.length?ccBars(seqRows):emptyMsg('No pour sequences yet.'))}
+      ${ccCard('Footings by type','foundation','#8B5CF6', famRows.length?ccBars(famRows):emptyMsg('No footings loaded.'))}
+      ${ccCard('Inspections signed off','fact_check','#3B82F6',
+        `<div style="display:flex;justify-content:center">${ccDonut([{v:ciDone,c:'#22C55E'},{v:Math.max(0,ciTot-ciDone),c:'#EF4444'}],String(ciDone),'of '+ciTot)}</div>`
+        +ccLegend([{label:'Done',v:ciDone,c:'#22C55E',always:true},{label:'Remaining',v:Math.max(0,ciTot-ciDone),c:'#EF4444'}])
+        +`<div style="text-align:center;font-size:11px;color:#8A92A0;margin-top:8px">${ciFull} of ${ciWith} pours fully signed off</div>`)}
+      ${ccCard('Embeds by state','push_pin','#06B6D4',
+        `<div style="display:flex;justify-content:center">${ccDonut([{v:eInst,c:'#22C55E'},{v:eNext,c:'#F59E0B'},{v:eTodo,c:'#EF4444'}],embedPct+'%','set')}</div>`
+        +ccLegend([{label:'Installed',v:eInst,c:'#22C55E'},{label:'Next pour',v:eNext,c:'#F59E0B'},{label:'To install',v:eTodo,c:'#EF4444'}]))}
+      ${ccCard('RFIs by status','help_center','#22D3EE', rfiRows.length?ccBars(rfiRows):emptyMsg('No RFIs yet.'))}
+    </div></div>`;
+}
 function dashboardHTML(){
   const n=v=>Number(v)||0, pours=Object.values(_poursCache);
   // ---- live metrics, pulled fresh from every synced source ----
@@ -522,6 +593,7 @@ function dashboardHTML(){
   const rfiAwaiting=RFI_DRIVE.filter(r=>r.status==='Submitted').length+Object.values(DATA.rfi).filter(r=>r.status==='Submitted'||r.status==='Open').length;
   const insp=Object.values(DATA.inspections||{}).filter(i=>i&&i.status), passed=insp.filter(i=>i.status==='PASS').length, ready=insp.filter(i=>i.status==='READY').length, failed=insp.filter(i=>i.status==='FAIL').length;
   const inspPct=insp.length?Math.round(passed/insp.length*100):0;
+  let kciT=0,kciD=0,kciF=0; pours.forEach(p=>{const a=pourChecklistItems(p); if(a.length){kciT+=a.length;const dd=a.filter(x=>x.done).length;kciD+=dd;if(dd===a.length)kciF++;}}); const kciPct=kciT?Math.round(kciD/kciT*100):0;   // per-pour inspection checklists (template-merged)
   const assets=Object.values(DATA.tools), onSite=assets.filter(a=>a.status==='On Site').length;
   const att=Object.keys(DATA.att.records||{}).length;
   const today=new Date().toISOString().slice(0,10), attToday=DATA.att.date===today;
@@ -529,10 +601,9 @@ function dashboardHTML(){
   const todayLbl=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
   const KPI=[
     {label:'Pours',value:String(pours.length),delta:`${active} in progress · ${scheduled} scheduled${complete?` · ${complete} done`:''}`,color:'#22C55E',icon:'water_drop',pct:pours.length?Math.round(complete/pours.length*100):null},
-    {label:'Concrete placed',value:totalCY?(pouredCY||totalCY).toLocaleString():String(active),unit:totalCY?'CY':'active',delta:totalCY?(pouredCY?`${pourPct}% of ${totalCY.toLocaleString()} CY`:`${totalCY.toLocaleString()} CY scheduled`):'CY not entered yet',color:'#F59E0B',icon:'local_fire_department',pct:totalCY?pourPct:null},
+    {label:'Inspections done',value:String(kciD),unit:'of '+kciT,delta:`${kciF} pours fully signed off`,color:'#F59E0B',icon:'fact_check',pct:kciPct},
     {label:'Embeds installed',value:embedPct+'%',delta:`${inst} of ${pinsAll.length} set`,color:'#06B6D4',icon:'push_pin',pct:embedPct},
     {label:'RFIs returned',value:String(rfiReturned),delta:`${rfiAwaiting} awaiting GC`,color:'#22D3EE',icon:'help_center'},
-    {label:'Inspections passed',value:String(passed),delta:`${ready} ready${failed?` · ${failed} failed`:''}`,color:'#3B82F6',icon:'fact_check',pct:inspPct},
     {label:'Tools on site',value:String(onSite),delta:`of ${assets.length} tracked`,color:'#EC4899',icon:'construction'},
     {label:'Crew on site',value:String(att),delta:attToday?'today ✓':(DATA.att.date?'as of '+DATA.att.date:'—'),color:'#8B5CF6',icon:'groups'},
   ];
@@ -563,6 +634,7 @@ function dashboardHTML(){
         <div style="font-size:11px;color:#8A92A0;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(k.delta)}</div>
         ${bar(k.pct,k.color)}</div>`).join('')}
     </div>
+    ${dashCharts()}
     <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px">
       <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:18px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-size:14px;font-weight:650;display:flex;align-items:center;gap:7px"><span class="ms" style="font-size:17px;color:#22C55E">event_upcoming</span>Upcoming on site</div>
@@ -1436,12 +1508,20 @@ function cupEnsureData(){ if(DATA.cupSheetPours&&DATA.cupChecklistItems)return; 
    are no longer read here (the live CUP dashboard moved off the spreadsheet). */
 function cupPours(){ const del=DATA.poursDeleted||{}; const list=[];
   Object.values(_poursCache).forEach(p=>{ if(del[p.id])return; const cy=+p.cy||0;
-    list.push({ id:p.id, section:String(p.area||(p.id||'')[0]||'').toUpperCase(), name:p.name||('Pour '+p.id), date:p.date||'', time:p.time||'', status:p.status||'PENDING', sequence:p.sequence||'', cy, total:cy, trucks:Math.ceil(cy/9)||0, mix:p.mix||null }); });
+    list.push({ id:p.id, section:String(p.area||(p.id||'')[0]||'').toUpperCase(), name:p.name||('Pour '+p.id), date:p.date||'', time:p.time||'', status:p.status||'PENDING', sequence:p.sequence||'', cy, total:cy, trucks:Math.ceil(cy/9)||0, mix:p.mix||null, checklist:Array.isArray(p.checklist)?p.checklist:[] }); });
   return list; }
 function cupGetStatus(id){ const v=(DATA.pourStatus||{})[id]; if(v==='ORDERED'||v==='COMPLETE'||v==='PENDING')return v; const p=_poursCache[id]; const s=String((p&&p.status)||'').toUpperCase(); return (s==='ORDERED'||s==='COMPLETE')?s:'PENDING'; }
 function cupMixDesigns(){ return Object.assign({},CUP_MIX_DESIGNS,DATA.mixDesignsLive||{}); }
 function cupCheckKey(id,what){ return id+'__'+String(what).replace(/[.#$\[\]\/]/g,'_'); }
 function cupInspStatus(id){ const g=(DATA.cupChecklistItems||[]).find(x=>x.phaseKey==='INSPECTIONS'); if(!g)return{items:[],done:0,total:0}; const ch=DATA.cupChecklist||{}; const its=g.items.map(it=>({what:it.what,done:!!ch[cupCheckKey(id,it.what)]})); return {items:its,done:its.filter(i=>i.done).length,total:its.length}; }
+// Inspections = per-pour embedded checklist merged with the standard template — mirrors CUP's pourChecklistItems/PREPOUR_DEFAULTS.
+// Every pour shows the full list; done-state stored at cup-foundation/pours/<id>/checklist = [{text,done}] (the array CUP turns green).
+const PREPOUR_DEFAULTS=['Bill Carr Surveyors','SME Bill Carr','Temperature sensors installed','ACC pre-pour checklist','LADBS inspection','LADBS Soils Inspection','Twining','Batch plant','WSP'];
+function pourChecklistItems(p){ const stored=(p&&Array.isArray(p.checklist))?p.checklist:[]; const have=new Set(stored.map(i=>i&&i.text)); const merged=stored.slice(); PREPOUR_DEFAULTS.forEach(t=>{ if(!have.has(t))merged.push({text:t,done:false}); }); return merged.filter(x=>x&&x.text); }
+function cupInspWrite(id,items){ rootSet('cup-foundation/pours/'+id+'/checklist',items).then(()=>rootSet('cup-foundation/pours/'+id+'/updatedAt',new Date().toISOString()).catch(()=>{})).catch(e=>toast(e.message,'err')); }
+function cupInspToggle(id,idx){ if(!can('pourEdit'))return toast('Unlock editing (PIN) to update inspections','warn'); const src=(DATA.cupPours||{})[id]||_poursCache[id]; const items=pourChecklistItems(src).map((it,i)=>i===idx?Object.assign({},it,{done:!it.done}):it); if(!items[idx])return; cupInspWrite(id,items); cupFeed(id,'inspection '+(items[idx].done?'✓ ':'✗ ')+(items[idx].text||'')); }
+function cupInspAll(id){ if(!can('pourEdit'))return toast('Unlock editing (PIN)','warn'); const src=(DATA.cupPours||{})[id]||_poursCache[id]; const items=pourChecklistItems(src).map(it=>Object.assign({},it,{done:true})); if(!items.length)return; cupInspWrite(id,items); cupFeed(id,'all inspections ✓'); }
+window.cupInspToggle=cupInspToggle; window.cupInspAll=cupInspAll;
 function cupConcreteStatus(id){ const s=DATA.concreteOrder||{}; const items=CONCRETE_ORDER_ITEMS.map(it=>({key:it.key,label:it.label,done:!!s[id+'__'+it.key]})); return {items,done:items.filter(i=>i.done).length,total:items.length}; }
 function cupFootingMap(id){ const m=(DATA.cupMaps||{})[id]; if(!m)return null; const fts=Array.isArray(m.footings)?m.footings:(m.footings?Object.values(m.footings):[]); return {footings:fts}; }
 function cupEmbChecked(fid,eid){ return !!(DATA.embedChecks||{})[(fid+'_'+eid).replace(/[.$\[\]#]/g,'_')]; }
@@ -1495,6 +1575,12 @@ function cupPourCard(p){ const c=SEC_COLORS[p.section]||'#888'; const st=cupGetS
       ${p.time?`<span style="display:flex;align-items:center;gap:5px"><span class="ms" style="font-size:13px;color:#8B5CF6">schedule</span><span class="mono">${esc(p.time)}</span></span>`:''}
       ${p.sequence?`<span class="mono" style="color:#7A8290">Seq ${esc(String(p.sequence))}</span>`:''}</div>
     ${mixStr?`<div style="font-size:10.5px;color:#7A8290;margin-bottom:10px;display:flex;align-items:center;gap:6px"><span class="ms" style="font-size:13px">science</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(mixStr)}</span></div>`:''}
+    ${STATE.hideInsp?'':(()=>{ const list=pourChecklistItems(p); if(!list.length)return ''; const done=list.filter(x=>x.done).length,total=list.length,pct=Math.round(done/total*100),col=pct===100?'#22C55E':pct>0?'#F59E0B':'#EF4444',ed=can('pourEdit');
+      const chips=list.map((it,i)=>{ const t=String(it.text||''),short=t.length>22?t.slice(0,20)+'…':t,base=`font-size:8.5px;padding:2px 7px;border-radius:5px;${it.done?'background:rgba(34,197,94,.16);color:#4ade80;border:1px solid rgba(34,197,94,.3)':'background:rgba(255,255,255,.05);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08)'}`; return ed?`<button onclick="event.stopPropagation();cupInspToggle('${p.id}',${i})" title="${esc(t)}" style="${base};cursor:pointer">${esc(short)}${it.done?' ✓':''}</button>`:`<span title="${esc(t)}" style="${base}">${esc(short)}${it.done?' ✓':''}</span>`; }).join('');
+      return `<div style="margin-bottom:10px;padding:9px 10px;border-radius:10px;background:${hexA(col,.06)};border:1px solid ${hexA(col,.3)}">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px"><span class="ms" style="font-size:14px;color:${col}">fact_check</span><span style="font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:${col}">Inspections ${done}/${total}</span>${ed&&pct<100?`<button onclick="event.stopPropagation();cupInspAll('${p.id}')" style="margin-left:auto;font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.25);cursor:pointer;text-transform:uppercase">All ✓</button>`:`<span class="mono" style="margin-left:auto;font-size:9px;font-weight:700;color:${col}">${pct}%</span>`}</div>
+        <div style="height:4px;border-radius:9999px;background:rgba(255,255,255,.06);overflow:hidden;margin-bottom:7px"><div style="height:100%;width:${pct}%;background:${col};border-radius:9999px"></div></div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">${chips}</div></div>`; })()}
     <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;margin-top:2px;border-top:1px solid rgba(255,255,255,.05)"><span class="mono" style="font-size:13px;font-weight:700;color:#34D399">${Math.round(p.total)} <span style="color:rgba(255,255,255,.4);font-weight:400;font-size:11px">CY</span></span><span style="font-size:11px;color:rgba(255,255,255,.4)">${p.trucks} trucks</span></div></div>`;
 }
 function cupDefaultMonth(list){ const months=new Set(); list.forEach(p=>{ const dt=cupParseDate(p.date); if(dt&&dt.y===2026&&dt.mo>=1&&dt.mo<=12)months.add(dt.mo-1); }); if(!months.size)return new Date().getMonth(); const cur=new Date().getMonth(); if(months.has(cur))return cur; let best=cur,bd=99; months.forEach(m=>{ const dist=Math.abs(m-cur); if(dist<bd){bd=dist;best=m;} }); return best; }
@@ -1505,12 +1591,15 @@ function poursHTML(){ const allList=cupPours(); const doneN=allList.filter(p=>cu
   const totals=`<div style="display:flex;gap:14px;align-items:center;font-size:11.5px;color:#9AA3B0"><span><b class="mono" style="color:#34D399">${Math.round(g.total).toLocaleString()}</b> CY</span><span><b class="mono">${g.trucks}</b> trucks</span><span><b class="mono">${list.length}</b> pours</span></div>`;
   const dr=`<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#7A8290"><span class="ms" style="font-size:15px;color:#8B5CF6">date_range</span><input type="date" value="${STATE.pourFrom||''}" onchange="cupSetRange('from',this.value)" class="fld" style="padding:4px 7px;color-scheme:dark"><span>→</span><input type="date" value="${STATE.pourTo||''}" onchange="cupSetRange('to',this.value)" class="fld" style="padding:4px 7px;color-scheme:dark">${(STATE.pourFrom||STATE.pourTo)?`<span class="ms" onclick="cupClearRange()" title="Clear range" style="cursor:pointer;color:#9AA3B0">close</span>`:''}</div>`;
   const hideToggle=`<button class="ghostbtn" onclick="togglePourDone()" title="Show or hide completed pours to reduce clutter" style="${STATE.hidePourDone?'border-color:rgba(139,92,246,.5);color:#C9BBFF':''}"><span class="ms" style="font-size:15px;color:${STATE.hidePourDone?'#C9BBFF':'#22C55E'}">${STATE.hidePourDone?'visibility_off':'check_circle'}</span>${STATE.hidePourDone?'Show complete':'Hide complete'}${doneN?` · ${doneN}`:''}</button>`;
-  const head=`<div style="flex-shrink:0;display:flex;align-items:center;gap:14px;padding:14px 20px 12px;flex-wrap:wrap"><div class="seg">${tabs}</div>${dr}${totals}<div style="flex:1"></div><span style="font-size:10.5px;color:#5B636F;display:flex;align-items:center;gap:5px" title="Pours are live from CUP — edit them in the CUP dashboard"><span class="ms" style="font-size:13px">sync</span>Live mirror</span>${hideToggle}<a class="ghostbtn" href="${APP_URLS.cup}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>Open CUP</a></div>`;
+  const inspToggle=`<button class="ghostbtn" onclick="togglePourInsp()" title="Show or hide the inspection checklist on each pour card" style="${STATE.hideInsp?'border-color:rgba(139,92,246,.5);color:#C9BBFF':''}"><span class="ms" style="font-size:15px;color:${STATE.hideInsp?'#C9BBFF':'#3B82F6'}">${STATE.hideInsp?'visibility_off':'fact_check'}</span>${STATE.hideInsp?'Show inspections':'Hide inspections'}</button>`;
+  const head=`<div style="flex-shrink:0;display:flex;align-items:center;gap:14px;padding:14px 20px 12px;flex-wrap:wrap"><div class="seg">${tabs}</div>${dr}${totals}<div style="flex:1"></div><span style="font-size:10.5px;color:#5B636F;display:flex;align-items:center;gap:5px" title="Pours are live from CUP — edit them in the CUP dashboard"><span class="ms" style="font-size:13px">sync</span>Live mirror</span>${inspToggle}${hideToggle}<a class="ghostbtn" href="${APP_URLS.cup}" target="_blank"><span class="ms" style="font-size:15px;color:#3B82F6">open_in_new</span>Open CUP</a></div>`;
   const body= !allList.length ? `<div class="full"><span class="ms">water_drop</span><div>Loading pours from CUP…</div></div>` : (view==='cards'?cupCardsView(list):cupCalendarView(list));
   return `<div style="display:flex;flex-direction:column;height:100%;animation:oyFade .35s ease">${head}${body}</div>`;
 }
 function togglePourDone(){ STATE.hidePourDone=!STATE.hidePourDone; renderBody(); }
 window.togglePourDone=togglePourDone;
+function togglePourInsp(){ STATE.hideInsp=!STATE.hideInsp; renderBody(); }
+window.togglePourInsp=togglePourInsp;
 function setPourView(v){ STATE.pourView=v; renderBody(); }
 window.setPourView=setPourView;
 function cupPourCardGrid(pours){ return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(304px,1fr));gap:14px;align-items:start">${pours.map(p=>`<div data-search="${esc((p.id+' '+p.section+' '+(p.name||'')+' '+(p.date||'')).toLowerCase())}">${cupPourCard(p)}</div>`).join('')||'<div style="color:#5B636F;font-size:12px;padding:10px">No pours in this range.</div>'}</div>`; }

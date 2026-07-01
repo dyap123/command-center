@@ -204,7 +204,7 @@ const STATE={
   activeTab:'map', roleMenuOpen:false,
   chatOpen:false, chatInput:'', chatBusy:false,
   chatMsgs:[{role:'assistant',text:"Yo — what are we pouring today? Ask me about the schedule, mix, footings, embeds, RFIs, tools or crew. I read the whole CUP live."}],
-  schedView:null,
+  schedView:null, schedScrollV:true,   // schedule timeline: default mouse-wheel scrolls vertically (through tasks)
 };
 function setS(patch){ Object.assign(STATE,patch); }
 // Sidebar starts collapsed if the user collapsed it before, or (no preference yet) on a narrow/tablet screen.

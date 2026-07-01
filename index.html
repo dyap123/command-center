@@ -273,9 +273,9 @@ function startLegacySync(){ if(_legacy)return; _legacy=true;
   fetch(DBURL+'/foreman-attendance/attendance.json?shallow=true').then(r=>r.json()).then(d=>{ DATA.att.dates=Object.keys(d||{}).sort().reverse(); DATA.att.date=DATA.att.dates[0]||''; DATA.att.loaded=true; if(DATA.att.date) loadAttDay(DATA.att.date); else softUpdate(); }).catch(()=>{ DATA.att.loaded=true; });
 }
 function startCCSync(){ if(_cc)return; _cc=true;
-  ccListen('rfi',v=>{ DATA.rfi=v||{}; buildFootRFI(); if(onMap()){renderRfiTray();renderLayerPanel();repaint();} if(STATE.activeTab==='rfis')renderBody(); });
+  ccListen('rfi',v=>{ DATA.rfi=v||{}; buildFootRFI(); if(onMap()){renderRfiTray();renderLayerPanel();repaint();} if(STATE.activeTab==='rfis')renderBody(); softUpdate(); });
   ccListen('markups',v=>{ DATA.markups=v||{}; if(onMap()){renderLayerPanel();repaint();} });
-  ccListen('inspections',v=>{ DATA.inspections=v||{}; if(onMap())repaint(); if(STATE.activeTab==='inspections')renderBody(); });
+  ccListen('inspections',v=>{ DATA.inspections=v||{}; if(onMap())repaint(); if(STATE.activeTab==='inspections')renderBody(); softUpdate(); });
   ccListen('mapCalib',v=>{ if(v){ DATA.calib=Object.assign({dx:0,dy:0,sx:1,sy:1},v); M.calib=DATA.calib; if(M.base){buildPinSnap(); if(onMap())repaint();} } });
   ccListen('mapGrid',v=>{ DATA.mapGrid=v; applyGrid(); });
   ccListen('feed',v=>{ DATA.feed=v||{}; if(STATE.activeTab==='dashboard')renderBody(); });
@@ -283,7 +283,7 @@ function startCCSync(){ if(_cc)return; _cc=true;
   if(ME.uid){ ccListen('prefs/'+ME.uid,v=>{ if(v&&v.layers){ Object.assign(M.layers,v.layers); if(onMap()){renderLayerPanel();repaint();} } });
               ccListen('users',v=>{ DATA.users=v||{}; if(STATE.activeTab==='admin')renderBody(); }); }
 }
-function loadAttDay(date){ DATA.att.date=date; fetch(DBURL+'/foreman-attendance/attendance/'+date+'.json').then(r=>r.json()).then(d=>{ DATA.att.records=d||{}; if(STATE.activeTab==='attendance')renderBody(); }).catch(()=>{}); }
+function loadAttDay(date){ DATA.att.date=date; fetch(DBURL+'/foreman-attendance/attendance/'+date+'.json').then(r=>r.json()).then(d=>{ DATA.att.records=d||{}; if(STATE.activeTab==='attendance')renderBody(); softUpdate(); }).catch(()=>{}); }
 window.loadAttDay=loadAttDay;
 // a real pour has content; bare/empty stray zones ("ghost pours") are filtered out
 function realPour(z){ return z && ( z.name || z.cy || z.area || z.sequence!=null || z.pour!=null || z.mix || (Array.isArray(z.points)&&z.points.length>=3) || typeof z.x==='number' ); }
@@ -510,36 +510,61 @@ window.exportXLSX=exportXLSX;
    DASHBOARD
    ============================================================================ */
 function dashboardHTML(){
-  const pours=Object.values(_poursCache);
-  const pinsAll=Object.values(DATA.pins), inst=pinsAll.filter(p=>p.installed).length;
-  const embedPct=pinsAll.length?Math.round(inst/pinsAll.length*100)+'%':'—';
-  const openRFI=(RFI_DRIVE.filter(r=>r.status==='Submitted'||r.status==='Open').length)+Object.values(DATA.rfi).filter(r=>r.status==='Submitted'||r.status==='Open').length;
+  const n=v=>Number(v)||0, pours=Object.values(_poursCache);
+  // ---- live metrics, pulled fresh from every synced source ----
+  const totalCY=pours.reduce((s,p)=>s+n(p.cy),0), pouredCY=pours.filter(p=>p.status==='COMPLETE').reduce((s,p)=>s+n(p.cy),0);
+  const pourPct=totalCY?Math.round(pouredCY/totalCY*100):0;
+  const active=pours.filter(p=>p.status==='ORDERED').length, complete=pours.filter(p=>p.status==='COMPLETE').length, scheduled=pours.filter(p=>p.status==='PENDING').length;
+  const pinsAll=Object.values(DATA.pins), inst=pinsAll.filter(p=>p.installed).length, embedPct=pinsAll.length?Math.round(inst/pinsAll.length*100):0;
+  const rfiReturned=RFI_DRIVE.filter(r=>r.status==='Returned').length;
+  const rfiAwaiting=RFI_DRIVE.filter(r=>r.status==='Submitted').length+Object.values(DATA.rfi).filter(r=>r.status==='Submitted'||r.status==='Open').length;
+  const insp=Object.values(DATA.inspections||{}).filter(i=>i&&i.status), passed=insp.filter(i=>i.status==='PASS').length, ready=insp.filter(i=>i.status==='READY').length, failed=insp.filter(i=>i.status==='FAIL').length;
+  const inspPct=insp.length?Math.round(passed/insp.length*100):0;
   const assets=Object.values(DATA.tools), onSite=assets.filter(a=>a.status==='On Site').length;
   const att=Object.keys(DATA.att.records||{}).length;
-  const today=new Date().toISOString().slice(0,10);
-  const todayPours=pours.filter(p=>p.date&&p.date<=today&&p.status!=='COMPLETE');
+  const today=new Date().toISOString().slice(0,10), attToday=DATA.att.date===today;
   const upcoming=pours.filter(p=>p.date&&p.date>=today).sort((a,b)=>(a.date||'').localeCompare(b.date||'')).slice(0,4);
+  const todayLbl=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
   const KPI=[
-    {label:'Pours active',value:String(todayPours.length||pours.filter(p=>p.status==='ORDERED').length),icon:'water_drop',color:'#EF4444',delta:(todayPours[0]?todayPours[0].name:'—'),dc:'#EF4444'},
-    {label:'Embeds installed',value:embedPct,icon:'push_pin',color:'#22C55E',delta:inst+' of '+pinsAll.length,dc:'#22C55E'},
-    {label:'RFIs awaiting GC',value:String(openRFI),icon:'help_center',color:'#F59E0B',delta:RFI_DRIVE.filter(r=>r.status==='Returned').length+' returned',dc:'#22C55E'},
-    {label:'Tools on site',value:String(onSite),icon:'construction',color:'#3B82F6',delta:'of '+assets.length+' tracked',dc:'#8A92A0'},
-    {label:'Crew signed in',value:String(att),icon:'groups',color:'#8B5CF6',delta:DATA.att.date||'—',dc:'#8A92A0'},
+    {label:'Pours',value:String(pours.length),delta:`${active} in progress · ${scheduled} scheduled${complete?` · ${complete} done`:''}`,color:'#22C55E',icon:'water_drop',pct:pours.length?Math.round(complete/pours.length*100):null},
+    {label:'Concrete placed',value:totalCY?(pouredCY||totalCY).toLocaleString():String(active),unit:totalCY?'CY':'active',delta:totalCY?(pouredCY?`${pourPct}% of ${totalCY.toLocaleString()} CY`:`${totalCY.toLocaleString()} CY scheduled`):'CY not entered yet',color:'#F59E0B',icon:'local_fire_department',pct:totalCY?pourPct:null},
+    {label:'Embeds installed',value:embedPct+'%',delta:`${inst} of ${pinsAll.length} set`,color:'#06B6D4',icon:'push_pin',pct:embedPct},
+    {label:'RFIs returned',value:String(rfiReturned),delta:`${rfiAwaiting} awaiting GC`,color:'#22D3EE',icon:'help_center'},
+    {label:'Inspections passed',value:String(passed),delta:`${ready} ready${failed?` · ${failed} failed`:''}`,color:'#3B82F6',icon:'fact_check',pct:inspPct},
+    {label:'Tools on site',value:String(onSite),delta:`of ${assets.length} tracked`,color:'#EC4899',icon:'construction'},
+    {label:'Crew on site',value:String(att),delta:attToday?'today ✓':(DATA.att.date?'as of '+DATA.att.date:'—'),color:'#8B5CF6',icon:'groups'},
   ];
-  const feed=Object.values(DATA.feed||{}).sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,8);
-  const feedIcon={inspection:['fact_check','#06B6D4'],rfi:['flag','#F59E0B'],pour:['water_drop','#22C55E']};
+  const feed=Object.values(DATA.feed||{}).sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,9);
+  const feedIcon={inspection:['fact_check','#06B6D4'],rfi:['flag','#22D3EE'],pour:['water_drop','#22C55E']};
+  const bar=(pct,c)=>pct!=null?`<div style="height:4px;border-radius:3px;background:rgba(255,255,255,.07);margin-top:11px;overflow:hidden"><div style="height:100%;width:${Math.max(3,Math.min(100,pct))}%;border-radius:3px;background:linear-gradient(90deg,${hexA(c,.55)},${c})"></div></div>`:'';
   return `<div style="padding:22px;animation:oyFade .35s ease">
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px">
-      ${KPI.map(k=>`<div class="card" style="padding:16px;position:relative;overflow:hidden">
-        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:${hexA(k.color,.6)}"></div>
-        <div style="display:flex;align-items:center;gap:8px;color:#8A92A0;font-size:11px;font-weight:500"><span class="ms" style="font-size:16px;color:${k.color}">${k.icon}</span>${k.label}</div>
-        <div class="mono" style="font-size:30px;font-weight:750;letter-spacing:-1px;margin-top:10px">${k.value}</div>
-        <div style="font-size:11px;color:${k.dc};margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(k.delta)}</div></div>`).join('')}
+    <div style="position:relative;overflow:hidden;border-radius:20px;padding:22px 24px;margin-bottom:18px;background:linear-gradient(120deg,rgba(34,211,238,.10),rgba(139,92,246,.10) 55%,rgba(236,72,153,.08));border:1px solid rgba(255,255,255,.09)">
+      <div style="position:absolute;top:-60px;right:-30px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(34,211,238,.22),transparent 70%);pointer-events:none"></div>
+      <div style="position:relative;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:14px">
+        <div>
+          <div style="display:flex;align-items:center;gap:9px;color:#9AA3B0;font-size:11.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase"><span style="width:7px;height:7px;border-radius:50%;background:#22C55E;box-shadow:0 0 10px #22C55E;animation:oyLive 1.8s ease-in-out infinite"></span>Live · ${esc(todayLbl)}</div>
+          <div style="font-size:26px;font-weight:800;letter-spacing:-.5px;margin-top:7px;background:linear-gradient(90deg,#E6E9EF,#9AA3B0);-webkit-background-clip:text;-webkit-text-fill-color:transparent">LACC Foundation — Command Center</div>
+          <div style="font-size:12.5px;color:#8A92A0;margin-top:6px">${pours.length} pours (${active} active) · ${embedPct}% embeds set · ${rfiReturned}/${rfiReturned+rfiAwaiting} RFIs returned · ${onSite} tools on site${att?` · ${att} crew${attToday?' today':''}`:''}${totalCY>100?` · ${pouredCY.toLocaleString()} CY placed`:''}</div>
+        </div>
+        <div style="display:flex;gap:9px">
+          <button class="ghostbtn" onclick="go('map')"><span class="ms" style="font-size:15px;color:${RFI_CYAN}">map</span>Open Map</button>
+          <button class="ghostbtn" onclick="go('pours')"><span class="ms" style="font-size:15px;color:#22C55E">water_drop</span>Pours</button>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:13px;margin-bottom:18px">
+      ${KPI.map(k=>`<div class="card" style="padding:15px 16px;position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,${k.color},${hexA(k.color,.15)})"></div>
+        <div style="position:absolute;top:-24px;right:-24px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,${hexA(k.color,.16)},transparent 70%);pointer-events:none"></div>
+        <div style="display:flex;align-items:center;gap:8px;color:#8A92A0;font-size:11px;font-weight:600"><span style="width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:${hexA(k.color,.14)}"><span class="ms" style="font-size:15px;color:${k.color}">${k.icon}</span></span>${k.label}</div>
+        <div style="margin-top:11px;display:flex;align-items:baseline;gap:5px"><span class="mono" style="font-size:29px;font-weight:750;letter-spacing:-1px">${k.value}</span>${k.unit?`<span style="font-size:12px;color:#8A92A0;font-weight:600">${k.unit}</span>`:''}</div>
+        <div style="font-size:11px;color:#8A92A0;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(k.delta)}</div>
+        ${bar(k.pct,k.color)}</div>`).join('')}
     </div>
     <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px">
       <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:18px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-size:14px;font-weight:650">Upcoming on site</div>
-          <div onclick="go('map')" style="font-size:11.5px;color:#9B8CF6;cursor:pointer;display:flex;align-items:center;gap:4px">Open the Map <span class="ms" style="font-size:14px">arrow_forward</span></div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-size:14px;font-weight:650;display:flex;align-items:center;gap:7px"><span class="ms" style="font-size:17px;color:#22C55E">event_upcoming</span>Upcoming on site</div>
+          <div onclick="go('pours')" style="font-size:11.5px;color:#9B8CF6;cursor:pointer;display:flex;align-items:center;gap:4px">Pour calendar <span class="ms" style="font-size:14px">arrow_forward</span></div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           ${(upcoming.length?upcoming:pours.slice(0,4)).map(p=>{const c=POURCOL[p.status]||'#566072';return `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px">
             <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:${c};box-shadow:0 0 8px ${c}"></span><span class="mono" style="font-size:12px;font-weight:600">${esc(p.area||p.sequence||'—')}</span><span class="pill" style="color:${c};background:${hexA(c,.14)}">${POURLBL[p.status]||p.status}</span></div>
@@ -548,7 +573,7 @@ function dashboardHTML(){
         </div></div>
       <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:18px;display:flex;flex-direction:column">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><span style="width:7px;height:7px;border-radius:50%;background:#22C55E;animation:oyLive 1.8s ease-in-out infinite"></span><div style="font-size:14px;font-weight:650">Live activity</div></div>
-        <div style="display:flex;flex-direction:column;gap:2px;overflow:auto;flex:1">
+        <div style="display:flex;flex-direction:column;gap:2px;overflow:auto;flex:1;max-height:340px">
           ${feed.length?feed.map(f=>{const ic=feedIcon[f.type]||['bolt','#8B5CF6'];return `<div style="display:flex;gap:11px;padding:9px 4px;border-bottom:1px solid rgba(255,255,255,.04)">
             <div style="width:28px;height:28px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${hexA(ic[1],.13)}"><span class="ms" style="font-size:15px;color:${ic[1]}">${ic[0]}</span></div>
             <div style="flex:1;min-width:0"><div style="font-size:12px;line-height:1.4">${esc(f.msg||'')}</div><div class="mono" style="font-size:10.5px;color:#6B7280;margin-top:2px">${f.ts?new Date(f.ts).toLocaleString():''}</div></div></div>`;}).join('')
@@ -1256,8 +1281,8 @@ let RFI_DRIVE=[];
 // A live source (e.g. Box) can be wired later by pointing RFI_API_URL at a JSON endpoint, which then
 // takes precedence over the snapshot. apps-script/Code.gs is a Drive lister kept for reference.
 function loadDriveRFIs(){ const live=/^https/.test(RFI_API_URL); const url=live?RFI_API_URL:'rfis.json';
-  fetch(url).then(r=>r.json()).then(l=>{ RFI_DRIVE=Array.isArray(l)?l:(l.rfis||[]); if(onMap())renderRfiTray(); if(STATE.activeTab==='rfis')renderBody(); })
-    .catch(e=>{ console.warn('RFI list',e); if(live) fetch('rfis.json').then(r=>r.json()).then(l=>{RFI_DRIVE=Array.isArray(l)?l:(l.rfis||[]);if(onMap())renderRfiTray();if(STATE.activeTab==='rfis')renderBody();}).catch(()=>{}); }); }
+  fetch(url).then(r=>r.json()).then(l=>{ RFI_DRIVE=Array.isArray(l)?l:(l.rfis||[]); if(onMap())renderRfiTray(); if(STATE.activeTab==='rfis')renderBody(); softUpdate(); })
+    .catch(e=>{ console.warn('RFI list',e); if(live) fetch('rfis.json').then(r=>r.json()).then(l=>{RFI_DRIVE=Array.isArray(l)?l:(l.rfis||[]);if(onMap())renderRfiTray();if(STATE.activeTab==='rfis')renderBody();softUpdate();}).catch(()=>{}); }); }
 window.loadDriveRFIs=loadDriveRFIs;
 const RFI_STAT_COL={Returned:'#22C55E',Submitted:'#F59E0B',Open:'#EF4444',Answered:'#F59E0B',Closed:'#3B82F6',Draft:'#8A92A0',Void:'#566072'};
 function rfiPillStyle(s){ const c=RFI_STAT_COL[s]||'#3B82F6'; return `font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:2px 7px;border-radius:5px;color:${c};background:${hexA(c,.14)}`; }
